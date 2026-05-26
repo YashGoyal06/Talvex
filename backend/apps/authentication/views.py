@@ -131,15 +131,33 @@ class TestCredentialsListView(views.APIView):
 
     def get(self, request):
         credentials = TestCredential.objects.all()
-        data = [
-            {
-                "role": cred.role,
-                "label": cred.label,
-                "email": cred.email,
-                "password": cred.password
-            }
-            for cred in credentials
-        ]
+        
+        # Diagnostic check
+        import os
+        env_supabase_url = os.environ.get('SUPABASE_URL', '')
+        env_supabase_secret = os.environ.get('SUPABASE_JWT_SECRET', '')
+        
+        diagnostic = {
+            "settings_supabase_url": settings.SUPABASE_URL,
+            "settings_supabase_secret_len": len(settings.SUPABASE_JWT_SECRET) if hasattr(settings, 'SUPABASE_JWT_SECRET') else 0,
+            "settings_supabase_secret_matches_default": (settings.SUPABASE_JWT_SECRET == 'kcwYMVIO/tp2KTwydJqHc7XnsnvIoYBGVe3LGvl7BAEVIZi25FmsFo70uaRRjmxwBIRYJl5qGX1nJYSJwD5Thw==') if hasattr(settings, 'SUPABASE_JWT_SECRET') else False,
+            "env_supabase_url": env_supabase_url,
+            "env_supabase_secret_len": len(env_supabase_secret) if env_supabase_secret else 0,
+            "env_supabase_secret_value_start": env_supabase_secret[:10] if env_supabase_secret else None,
+        }
+        
+        data = {
+            "credentials": [
+                {
+                    "role": cred.role,
+                    "label": cred.label,
+                    "email": cred.email,
+                    "password": cred.password
+                }
+                for cred in credentials
+            ],
+            "diagnostic": diagnostic
+        }
         return Response(data, status=status.HTTP_200_OK)
 
 
