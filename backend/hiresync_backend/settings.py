@@ -146,11 +146,11 @@ SIMPLE_JWT = {
 }
 
 # Supabase Auth Settings
-SUPABASE_URL = os.environ.get('SUPABASE_URL', '').strip()
-if not SUPABASE_URL or SUPABASE_URL == 'SUPABASE_URL' or 'your-project' in SUPABASE_URL:
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').strip().strip('\'"')
+if not SUPABASE_URL or not SUPABASE_URL.startswith('http') or SUPABASE_URL == 'SUPABASE_URL' or 'your-project' in SUPABASE_URL:
     SUPABASE_URL = 'https://kntarabupposhjhlqwob.supabase.co'
 
-SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '').strip()
+SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '').strip().strip('\'"')
 if not SUPABASE_JWT_SECRET or SUPABASE_JWT_SECRET == 'SUPABASE_JWT_SECRET' or 'your-supabase-jwt-secret' in SUPABASE_JWT_SECRET:
     SUPABASE_JWT_SECRET = 'kcwYMVIO/tp2KTwydJqHc7XnsnvIoYBGVe3LGvl7BAEVIZi25FmsFo70uaRRjmxwBIRYJl5qGX1nJYSJwD5Thw=='
 

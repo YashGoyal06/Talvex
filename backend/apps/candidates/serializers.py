@@ -19,13 +19,24 @@ def upload_file_to_supabase(file_obj, bucket_name="resumes"):
     ext = os.path.splitext(file_obj.name)[1]
     file_name = f"{uuid.uuid4()}{ext}"
 
+    import base64
+    jwt_secret = settings.SUPABASE_JWT_SECRET
+    try:
+        # Supabase secrets are base64-encoded. We decode it before signing the JWT
+        # so the signature matches what Supabase storage servers verify.
+        decoded_secret = base64.b64decode(jwt_secret)
+    except Exception:
+        decoded_secret = jwt_secret.encode('utf-8') if isinstance(jwt_secret, str) else jwt_secret
+
     payload = {
         "role": "service_role",
         "iss": "supabase",
         "iat": int(time.time()),
         "exp": int(time.time() + 3600)
     }
-    token = jwt.encode(payload, settings.SUPABASE_JWT_SECRET, algorithm="HS256")
+    token = jwt.encode(payload, decoded_secret, algorithm="HS256")
+    if isinstance(token, bytes):
+        token = token.decode('utf-8')
 
     # Ensure the bucket exists
     headers = {
