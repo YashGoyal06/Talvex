@@ -3,6 +3,12 @@ from rest_framework.response import Response
 from .models import Candidate, Application
 from .serializers import ApplicationSerializer, SubmitApplicationSerializer, CandidateSerializer
 from django.utils import timezone
+import os
+import tempfile
+import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_request_company(request):
     company = getattr(request, 'company', None)
@@ -176,30 +182,100 @@ class CandidateMyApplicationsView(views.APIView):
 class CandidateProfileUpdateView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
+    def get(self, request):
+        email = request.query_params.get('email')
+        if not email:
+            return Response({"error": "email parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        candidate = Candidate.objects.filter(email=email).first()
+        if not candidate:
+            return Response({
+                "candidate": {
+                    "email": email,
+                    "first_name": email.split('@')[0].capitalize(),
+                    "last_name": "",
+                    "phone": "",
+                    "parsed_resume": {}
+                }
+            }, status=status.HTTP_200_OK)
+            
+        return Response({
+            "candidate": {
+                "email": candidate.email,
+                "first_name": candidate.first_name,
+                "last_name": candidate.last_name,
+                "phone": candidate.phone,
+                "parsed_resume": candidate.parsed_resume
+            }
+        }, status=status.HTTP_200_OK)
+
     def patch(self, request):
         email = request.data.get('email')
         if not email:
             return Response({"error": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
             
-        candidate = Candidate.objects.filter(email=email).first()
-        if not candidate:
-            return Response({"error": "Candidate not found."}, status=status.HTTP_404_NOT_FOUND)
-            
         parsed_resume = request.data.get('parsed_resume')
         first_name = request.data.get('first_name')
         last_name = request.data.get('last_name')
         phone = request.data.get('phone')
+
+        candidate, created = Candidate.objects.get_or_create(
+            email=email,
+            defaults={
+                'first_name': first_name or email.split('@')[0].capitalize(),
+                'last_name': last_name or '',
+                'phone': phone or ''
+            }
+        )
         
         if parsed_resume is not None:
             if not isinstance(candidate.parsed_resume, dict):
                 candidate.parsed_resume = {}
             candidate.parsed_resume.update(parsed_resume)
-        if first_name is not None:
-            candidate.first_name = first_name
-        if last_name is not None:
-            candidate.last_name = last_name
-        if phone is not None:
-            candidate.phone = phone
+            
+            # Check if the user is uploading a new resume document to parse
+            documents = parsed_resume.get('documents', []) if isinstance(parsed_resume, dict) else []
+            if documents:
+                latest_doc = documents[-1]
+                doc_url = latest_doc.get('url', '')
+                doc_name = latest_doc.get('name', '')
+                ext = os.path.splitext(doc_name)[1].lower()
+                
+                if doc_url and ext in ['.pdf', '.docx', '.doc', '.txt']:
+                    try:
+                        # Download document
+                        res_file = requests.get(doc_url)
+                        if res_file.status_code == 200:
+                            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                                tmp.write(res_file.content)
+                                tmp_path = tmp.name
+                            
+                            # Parse resume
+                            from .parser import parse_resume
+                            parsed_data, confidence = parse_resume(tmp_path)
+                            os.unlink(tmp_path)
+                            
+                            if isinstance(parsed_data, dict):
+                                # Merge parser results, keeping documents list
+                                parsed_data['documents'] = documents
+                                candidate.parsed_resume = parsed_data
+                                candidate.confidence_score = confidence
+                                if parsed_data.get('phone') and not candidate.phone:
+                                    candidate.phone = parsed_data['phone']
+                                if parsed_data.get('first_name') and not candidate.first_name:
+                                    candidate.first_name = parsed_data['first_name']
+                                if parsed_data.get('last_name') and not candidate.last_name:
+                                    candidate.last_name = parsed_data['last_name']
+                    except Exception as e:
+                        logger.error(f"Error parsing uploaded document in patch view: {e}")
+                        
+        if not created:
+            if first_name is not None:
+                candidate.first_name = first_name
+            if last_name is not None:
+                candidate.last_name = last_name
+            if phone is not None:
+                candidate.phone = phone
             
         candidate.save()
         return Response({

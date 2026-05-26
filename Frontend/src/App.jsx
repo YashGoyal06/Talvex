@@ -17,6 +17,7 @@ import LiveInterviewRoom from './pages/candidate/LiveInterviewRoom';
 import CandidateDashboard from './pages/candidate/CandidateDashboard';
 import CandidateInterviews from './pages/candidate/CandidateInterviews';
 import AssessmentRoom from './pages/candidate/AssessmentRoom';
+import FirstProfileSetup from './pages/candidate/FirstProfileSetup';
 import SupportView from './pages/shared/SupportView';
 import SettingsView from './pages/shared/SettingsView';
 import PlaceholderView from './pages/shared/PlaceholderView';
@@ -71,6 +72,7 @@ function App() {
         <Route path="/recruiter/interview/:roomId" element={<LiveInterviewRoom />} />
         <Route path="/candidate/assessment/:token" element={<AssessmentRoom />} />
         <Route path="/recruiter/profile-setup" element={<FirstLoginForm />} />
+        <Route path="/candidate/profile-setup" element={<FirstProfileSetup />} />
       </Routes>
     </Router>
   );

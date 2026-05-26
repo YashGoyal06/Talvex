@@ -4,10 +4,11 @@ import {
   Briefcase, UserPlus, ArrowUpRight, Laptop, ShieldCheck, HelpCircle, 
   Star, FileText, Trash2, Upload, AlertCircle, Award, CheckCircle, Sparkles, User, Bell
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api/api';
 
 export default function CandidateDashboard() {
+  const navigate = useNavigate();
   const storedName = localStorage.getItem('userName') || 'Candidate';
   const userEmail = localStorage.getItem('userEmail') || '';
 
@@ -44,16 +45,35 @@ export default function CandidateDashboard() {
     setLoading(true);
     setError('');
     try {
-      const [appsData, interviewsData, jobsData] = await Promise.all([
+      const [appsData, interviewsData, jobsData, profileRes] = await Promise.all([
         api.candidates.myApplications(userEmail),
         api.interviews.myInterviews(userEmail),
-        api.jobs.list()
+        api.jobs.list(),
+        api.candidates.getProfile(userEmail).catch(() => null)
       ]);
+
+      const candidateProfile = profileRes?.candidate;
+      const documents = candidateProfile?.parsed_resume?.documents || [];
+      const hasResume = documents.length > 0;
+
+      // If no resume and no applications submitted, force onboarding setup
+      if (!hasResume && (!appsData || appsData.length === 0)) {
+        navigate('/candidate/profile-setup');
+        return;
+      }
+
       setApplications(appsData || []);
       setInterviews(interviewsData || []);
       setJobs(jobsData || []);
 
-      if (appsData && appsData.length > 0 && appsData[0].candidate) {
+      if (candidateProfile) {
+        const resume = candidateProfile.parsed_resume || {};
+        setProfile({
+          skills: resume.skills || [],
+          documents: resume.documents || [],
+          certifications: resume.certifications || []
+        });
+      } else if (appsData && appsData.length > 0 && appsData[0].candidate) {
         const resume = appsData[0].candidate.parsed_resume || {};
         setProfile({
           skills: resume.skills || [],

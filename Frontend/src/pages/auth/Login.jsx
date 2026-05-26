@@ -46,7 +46,20 @@ export default function Login() {
           // Clear hash from URL cleanly without refreshing page
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
 
-          navigate('/candidate/dashboard');
+          // Check if candidate needs to fill setup form (first time login check)
+          api.candidates.getProfile(email)
+            .then(res => {
+              const candidate = res.candidate;
+              const hasResume = candidate && candidate.parsed_resume && candidate.parsed_resume.documents && candidate.parsed_resume.documents.length > 0;
+              if (hasResume) {
+                navigate('/candidate/dashboard');
+              } else {
+                navigate('/candidate/profile-setup');
+              }
+            })
+            .catch(() => {
+              navigate('/candidate/profile-setup');
+            });
           return;
         } catch (e) {
           console.error("Failed to parse OAuth token parameters:", e);
@@ -117,7 +130,19 @@ export default function Login() {
         localStorage.setItem('userRole', 'candidate');
         localStorage.setItem('userEmail', res.user.email);
         localStorage.setItem('userName', res.user.full_name);
-        navigate('/candidate/dashboard');
+        
+        try {
+          const profileRes = await api.candidates.getProfile(res.user.email);
+          const candidate = profileRes.candidate;
+          const hasResume = candidate && candidate.parsed_resume && candidate.parsed_resume.documents && candidate.parsed_resume.documents.length > 0;
+          if (hasResume) {
+            navigate('/candidate/dashboard');
+          } else {
+            navigate('/candidate/profile-setup');
+          }
+        } catch (err) {
+          navigate('/candidate/profile-setup');
+        }
       }
     } catch (err) {
       setLoading(false);

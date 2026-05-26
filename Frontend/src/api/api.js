@@ -242,10 +242,14 @@ export const api = {
       return request(`/candidates/my-applications/?email=${encodeURIComponent(email)}`);
     },
 
+    async getProfile(email) {
+      return request(`/candidates/profile/?email=${encodeURIComponent(email)}`);
+    },
+
     async updateProfile(email, profileData) {
       return request('/candidates/profile/', {
         method: 'PATCH',
-        body: { email, parsed_resume: profileData },
+        body: { email, ...profileData },
         skipAuth: true
       });
     }
