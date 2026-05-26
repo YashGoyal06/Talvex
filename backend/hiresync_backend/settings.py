@@ -85,23 +85,51 @@ WSGI_APPLICATION = 'hiresync_backend.wsgi.application'
 ASGI_APPLICATION = 'hiresync_backend.asgi.application'
 
 # Database Connection
+import socket
 db_url = os.environ.get('DATABASE_URL', '')
 if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
     # Support connection poolers and SSL if needed (recommended for Supabase)
     url = urlparse(db_url)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': url.path[1:],
-            'USER': url.username,
-            'PASSWORD': url.password,
-            'HOST': url.hostname,
-            'PORT': url.port or 5432,
-            'OPTIONS': {
-                'sslmode': 'prefer',
+    
+    # Try resolving host and opening a fast connection check to prevent crashes on unstable/restricted networks
+    use_postgres = True
+    try:
+        # Check DNS resolution & reachability to port 5432 (timeout of 2.0 seconds)
+        s = socket.create_connection((url.hostname, url.port or 5432), timeout=2.0)
+        s.close()
+    except Exception as e:
+        use_postgres = False
+        print("\n" + "="*80)
+        print(" ⚠️  DATABASE REACHABILITY ERROR: Failed to connect to remote Supabase database!")
+        print(f"    Host: {url.hostname}:{url.port or 5432}")
+        print(f"    Error: {e}")
+        print("\n 👉 POSSIBLE CAUSES:")
+        print("    1. You are offline or have a weak/unstable internet connection.")
+        print("    2. A firewall, VPN, or network proxy is blocking port 5432 or DNS resolution.")
+        print("\n ⚠️  FALLING BACK TO LOCAL SQLITE DATABASE (db.sqlite3) FOR OFFLINE DEVELOPMENT.")
+        print("="*80 + "\n")
+        
+    if use_postgres:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': url.path[1:],
+                'USER': url.username,
+                'PASSWORD': url.password,
+                'HOST': url.hostname,
+                'PORT': url.port or 5432,
+                'OPTIONS': {
+                    'sslmode': 'prefer',
+                }
             }
         }
-    }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 else:
     # SQLite fallback with a highly visible terminal warning and setup guide
     print("\n" + "="*80)
