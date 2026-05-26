@@ -84,71 +84,37 @@ TEMPLATES = [
 WSGI_APPLICATION = 'hiresync_backend.wsgi.application'
 ASGI_APPLICATION = 'hiresync_backend.asgi.application'
 
-# Database Connection
-import socket
+# Database Connection (Mandatory production-ready Supabase PostgreSQL)
 db_url = os.environ.get('DATABASE_URL', '')
-if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
-    # Support connection poolers and SSL if needed (recommended for Supabase)
-    url = urlparse(db_url)
-    
-    # Try resolving host and opening a fast connection check to prevent crashes on unstable/restricted networks
-    use_postgres = True
-    try:
-        # Check DNS resolution & reachability to port 5432 (timeout of 2.0 seconds)
-        s = socket.create_connection((url.hostname, url.port or 5432), timeout=2.0)
-        s.close()
-    except Exception as e:
-        use_postgres = False
-        print("\n" + "="*80)
-        print(" ⚠️  DATABASE REACHABILITY ERROR: Failed to connect to remote Supabase database!")
-        print(f"    Host: {url.hostname}:{url.port or 5432}")
-        print(f"    Error: {e}")
-        print("\n 👉 POSSIBLE CAUSES:")
-        print("    1. You are offline or have a weak/unstable internet connection.")
-        print("    2. A firewall, VPN, or network proxy is blocking port 5432 or DNS resolution.")
-        print("\n ⚠️  FALLING BACK TO LOCAL SQLITE DATABASE (db.sqlite3) FOR OFFLINE DEVELOPMENT.")
-        print("="*80 + "\n")
-        
-    if use_postgres:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': url.path[1:],
-                'USER': url.username,
-                'PASSWORD': url.password,
-                'HOST': url.hostname,
-                'PORT': url.port or 5432,
-                'OPTIONS': {
-                    'sslmode': 'prefer',
-                }
-            }
-        }
-    else:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
-else:
-    # SQLite fallback with a highly visible terminal warning and setup guide
-    print("\n" + "="*80)
-    print(" ⚠️  WARNING: DATABASE_URL not set or not pointing to a Postgres database!")
-    print(" ⚠️  Falling back to local SQLite database (db.sqlite3).")
-    print(" ⚠️  Data will NOT sync with Supabase. Recruiter auth changes will be local-only.")
-    print("\n 👉 TO SYNC WITH PRODUCTION SUPABASE:")
-    print("    1. Copy 'backend/.env.example' to 'backend/.env'")
-    print("    2. Add the following values to your '.env' file:")
-    print("       DATABASE_URL=postgresql://postgres:Yash9897422911@db.kntarabupposhjhlqwob.supabase.co:5432/postgres")
-    print("       SUPABASE_URL=https://kntarabupposhjhlqwob.supabase.co")
-    print("       SUPABASE_JWT_SECRET=kcwYMVIO/tp2KTwydJqHc7XnsnvIoYBGVe3LGvl7BAEVIZi25FmsFo70uaRRjmxwBIRYJl5qGX1nJYSJwD5Thw==")
-    print("="*80 + "\n")
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+if not db_url or not (db_url.startswith('postgres://') or db_url.startswith('postgresql://')):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "\n" + "="*80 + "\n"
+        " ❌ CONFIGURATION ERROR: DATABASE_URL environment variable is missing or invalid!\n"
+        "    Production-ready Supabase PostgreSQL is MANDATORY for Tarvax.\n\n"
+        " 👉 TO CONFIGURE SUPABASE:\n"
+        "    1. Copy 'backend/.env.example' to 'backend/.env'\n"
+        "    2. Set the following environment variables in '.env':\n"
+        "       DATABASE_URL=postgresql://postgres:Yash9897422911@db.kntarabupposhjhlqwob.supabase.co:5432/postgres\n"
+        "       SUPABASE_URL=https://kntarabupposhjhlqwob.supabase.co\n"
+        "       SUPABASE_JWT_SECRET=kcwYMVIO/tp2KTwydJqHc7XnsnvIoYBGVe3LGvl7BAEVIZi25FmsFo70uaRRjmxwBIRYJl5qGX1nJYSJwD5Thw==\n"
+        "="*80 + "\n"
+    )
+
+url = urlparse(db_url)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': url.path[1:],
+        'USER': url.username,
+        'PASSWORD': url.password,
+        'HOST': url.hostname,
+        'PORT': url.port or 5432,
+        'OPTIONS': {
+            'sslmode': 'prefer',
         }
     }
+}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
