@@ -1,0 +1,520 @@
+# Talvex Development Log
+
+Chronological timeline of system changes and architecture design updates.
+
+- 2026-04-21 10:08:39: style(logo): adjust SVG letter-spacing in text layout
+- 2026-04-21 10:38:14: fix(null-check): prevent undefined crash on mock details
+- 2026-04-21 12:43:22: feat(recruiter): add filter candidates by status tags
+- 2026-04-21 12:49:51: refactor(routing): secure nested private route structures
+- 2026-04-21 13:21:35: refactor(error): implement generic ErrorBoundary component
+- 2026-04-21 13:36:18: fix(auth): correct email verification redirection logic
+- 2026-04-21 13:42:29: perf(render): memoize expensive listing computation items
+- 2026-04-21 15:03:08: fix(navigation): repair broken footer social links mapping
+- 2026-04-21 15:15:14: style(fonts): load inter font face families asynchronously
+- 2026-04-21 16:07:43: style(tooltip): customize dark tooltip text positions
+- 2026-04-21 16:10:42: feat(editor): integrate theme options for interview room
+- 2026-04-21 16:44:05: fix(scroll): preserve scroll position on route transitions
+- 2026-04-21 16:47:14: style(header): fix navigation bar to screen top z-index
+- 2026-04-21 16:57:25: feat(interview): implement editor syntax highlighting triggers
+- 2026-04-21 16:58:15: feat(billing): design subscription card price plans layout
+- 2026-04-21 17:20:51: feat(audit-log): draft system security access logging view
+- 2026-04-21 17:30:36: fix(click-outside): close dropdowns on outer container click
+- 2026-04-21 18:45:24: feat(candidate): list completed coding evaluations panel
+- 2026-04-22 09:56:06: fix(timezone): format interview dates to client locale
+- 2026-04-22 09:56:16: feat(jobs): add share job post copy to clipboard button
+- 2026-04-22 10:24:50: refactor(mock): expand mock data schemas with extra fields
+- 2026-04-22 11:48:01: chore(deps): clean up unused modules and developer utilities
+- 2026-04-22 13:13:47: perf(code): optimize code-splitting routes dynamic imports
+- 2026-04-22 13:25:00: style(theme): enhance dark mode background contrast accents
+- 2026-04-22 13:32:01: fix(form-reset): clear validation errors on modal dismiss
+- 2026-04-22 13:45:59: refactor(analytics): separate charts into isolated components
+- 2026-04-22 14:12:39: feat(filters): add multi-select tags for candidate skills
+- 2026-04-22 14:34:17: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-04-22 15:24:00: style(sidebar): add smooth drawer toggle transition effects
+- 2026-04-22 16:06:02: style(cards): refine dashboard stat cards box-shadows
+- 2026-04-22 16:17:08: perf(bundle): configure bundle visualizer options
+- 2026-04-22 16:46:31: refactor(state): extract user preferences to state context
+- 2026-04-22 17:21:54: perf(state): optimize render triggers in socket connection
+- 2026-04-22 17:23:15: feat(live-room): add real-time status indicator for peers
+- 2026-04-22 18:05:20: style(loader): add skeleton screens for table listings
+- 2026-04-22 18:16:39: style(input): increase input field padding for legibility
+- 2026-04-22 18:37:18: refactor(forms): dry form validations with custom hooks
+- 2026-04-23 09:31:28: feat(toast): add success toast feedback on login success
+- 2026-04-23 09:41:33: fix(keyboard): enable esc key to close full-screen modals
+- 2026-04-23 09:47:27: fix(routing): prevent redirect loops on invalid access tags
+- 2026-04-23 10:36:08: style(badge): color status pills for candidate applications
+- 2026-04-23 10:53:57: perf(images): compress hero assets and background patterns
+- 2026-04-23 11:57:06: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-04-23 12:40:36: docs(readme): add troubleshooting section for local setups
+- 2026-04-23 13:03:35: docs(changelog): draft initial release milestones list
+- 2026-04-23 13:33:27: refactor(api): centralize mock service helper declarations
+- 2026-04-23 13:57:20: fix(eslint): resolve react-hooks warning dependencies
+- 2026-04-23 16:00:13: style(table): align columns and format salary details
+- 2026-04-23 16:06:10: refactor(components): modularize UI shell layouts
+- 2026-04-23 16:09:50: fix(validation): correct password strength checker threshold
+- 2026-04-23 16:50:11: style(modals): animate onboarding wizard slide transitions
+- 2026-04-23 17:48:29: docs(api): update endpoints specification in dev notes
+- 2026-04-23 17:50:01: feat(search): add instant query debounce for job search
+- 2026-04-23 18:15:37: style(tabs): adjust active borders color matching palette
+- 2026-04-23 18:48:32: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-04-23 18:53:09: feat(candidate): add profile export as PDF action
+- 2026-04-24 09:34:18: perf(assets): convert icons to lightweight custom SVGs
+- 2026-04-24 09:44:18: style(buttons): refine hover states and focus outlines
+- 2026-04-24 09:54:12: test(auth): add unit test specs for signup inputs
+- 2026-04-24 10:36:50: refactor(layout): clean flexbox properties in hero grids
+- 2026-04-24 11:10:27: perf(code): optimize code-splitting routes dynamic imports
+- 2026-04-24 11:44:12: refactor(components): modularize UI shell layouts
+- 2026-04-24 12:01:13: feat(candidate): add profile export as PDF action
+- 2026-04-24 13:13:15: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-04-24 14:23:35: style(logo): adjust SVG letter-spacing in text layout
+- 2026-04-24 14:36:06: feat(candidate): list completed coding evaluations panel
+- 2026-04-24 15:04:55: refactor(analytics): separate charts into isolated components
+- 2026-04-24 15:23:39: chore(deps): clean up unused modules and developer utilities
+- 2026-04-24 15:25:40: perf(state): optimize render triggers in socket connection
+- 2026-04-24 15:57:36: style(sidebar): add smooth drawer toggle transition effects
+- 2026-04-24 16:12:23: test(auth): add unit test specs for signup inputs
+- 2026-04-24 16:32:08: fix(keyboard): enable esc key to close full-screen modals
+- 2026-04-24 17:35:50: style(header): fix navigation bar to screen top z-index
+- 2026-04-25 09:58:16: refactor(routing): secure nested private route structures
+- 2026-04-25 10:48:55: style(tabs): adjust active borders color matching palette
+- 2026-04-25 10:56:07: fix(click-outside): close dropdowns on outer container click
+- 2026-04-25 11:50:11: feat(filters): add multi-select tags for candidate skills
+- 2026-04-25 11:55:49: feat(jobs): add share job post copy to clipboard button
+- 2026-04-25 12:10:04: refactor(api): centralize mock service helper declarations
+- 2026-04-25 13:00:25: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-04-25 13:06:00: perf(render): memoize expensive listing computation items
+- 2026-04-25 13:33:23: fix(timezone): format interview dates to client locale
+- 2026-04-25 13:33:32: perf(images): compress hero assets and background patterns
+- 2026-04-25 13:53:16: fix(navigation): repair broken footer social links mapping
+- 2026-04-25 14:08:19: style(input): increase input field padding for legibility
+- 2026-04-25 14:13:50: feat(billing): design subscription card price plans layout
+- 2026-04-25 14:55:59: refactor(layout): clean flexbox properties in hero grids
+- 2026-04-25 15:31:46: feat(search): add instant query debounce for job search
+- 2026-04-25 17:34:49: style(theme): enhance dark mode background contrast accents
+- 2026-04-25 18:36:03: style(fonts): load inter font face families asynchronously
+- 2026-04-26 09:52:34: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-04-26 09:57:45: feat(audit-log): draft system security access logging view
+- 2026-04-26 10:21:39: refactor(forms): dry form validations with custom hooks
+- 2026-04-26 10:39:44: feat(interview): implement editor syntax highlighting triggers
+- 2026-04-26 11:13:45: feat(editor): integrate theme options for interview room
+- 2026-04-26 11:48:17: feat(toast): add success toast feedback on login success
+- 2026-04-26 11:52:35: refactor(error): implement generic ErrorBoundary component
+- 2026-04-26 12:08:47: feat(live-room): add real-time status indicator for peers
+- 2026-04-26 12:35:51: fix(eslint): resolve react-hooks warning dependencies
+- 2026-04-26 12:35:58: feat(recruiter): add filter candidates by status tags
+- 2026-04-26 14:44:08: docs(readme): add troubleshooting section for local setups
+- 2026-04-26 16:03:19: style(table): align columns and format salary details
+- 2026-04-26 17:42:54: perf(assets): convert icons to lightweight custom SVGs
+- 2026-04-26 18:05:57: fix(routing): prevent redirect loops on invalid access tags
+- 2026-04-26 18:10:02: style(modals): animate onboarding wizard slide transitions
+- 2026-04-26 18:43:11: docs(api): update endpoints specification in dev notes
+- 2026-04-26 18:57:59: style(badge): color status pills for candidate applications
+- 2026-04-27 09:31:18: style(tooltip): customize dark tooltip text positions
+- 2026-04-27 09:51:17: fix(scroll): preserve scroll position on route transitions
+- 2026-04-27 10:51:18: docs(changelog): draft initial release milestones list
+- 2026-04-27 11:01:20: style(loader): add skeleton screens for table listings
+- 2026-04-27 12:24:59: refactor(mock): expand mock data schemas with extra fields
+- 2026-04-27 13:41:15: fix(auth): correct email verification redirection logic
+- 2026-04-27 13:43:20: perf(bundle): configure bundle visualizer options
+- 2026-04-27 13:45:22: refactor(state): extract user preferences to state context
+- 2026-04-27 14:50:25: style(buttons): refine hover states and focus outlines
+- 2026-04-27 16:41:27: fix(form-reset): clear validation errors on modal dismiss
+- 2026-04-27 16:52:36: fix(null-check): prevent undefined crash on mock details
+- 2026-04-27 17:26:33: style(cards): refine dashboard stat cards box-shadows
+- 2026-04-27 17:47:39: fix(validation): correct password strength checker threshold
+- 2026-04-27 18:08:23: feat(candidate): add profile export as PDF action
+- 2026-04-27 18:25:56: style(sidebar): add smooth drawer toggle transition effects
+- 2026-04-27 18:29:34: refactor(mock): expand mock data schemas with extra fields
+- 2026-04-27 18:41:45: feat(toast): add success toast feedback on login success
+- 2026-04-27 18:56:14: style(modals): animate onboarding wizard slide transitions
+- 2026-04-28 09:39:40: refactor(forms): dry form validations with custom hooks
+- 2026-04-28 10:26:37: style(tabs): adjust active borders color matching palette
+- 2026-04-28 10:47:33: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-04-28 11:44:08: docs(changelog): draft initial release milestones list
+- 2026-04-28 11:57:12: feat(billing): design subscription card price plans layout
+- 2026-04-28 12:05:45: perf(render): memoize expensive listing computation items
+- 2026-04-28 12:14:44: fix(timezone): format interview dates to client locale
+- 2026-04-28 12:20:02: fix(null-check): prevent undefined crash on mock details
+- 2026-04-28 13:36:39: style(input): increase input field padding for legibility
+- 2026-04-28 13:55:16: style(logo): adjust SVG letter-spacing in text layout
+- 2026-04-28 14:35:13: style(fonts): load inter font face families asynchronously
+- 2026-04-28 14:35:53: fix(form-reset): clear validation errors on modal dismiss
+- 2026-04-28 16:27:50: refactor(components): modularize UI shell layouts
+- 2026-04-28 16:29:09: feat(recruiter): add filter candidates by status tags
+- 2026-04-28 18:18:47: refactor(state): extract user preferences to state context
+- 2026-04-28 18:20:17: style(tooltip): customize dark tooltip text positions
+- 2026-04-28 18:30:07: feat(interview): implement editor syntax highlighting triggers
+- 2026-04-29 09:33:31: refactor(routing): secure nested private route structures
+- 2026-04-29 09:35:10: perf(assets): convert icons to lightweight custom SVGs
+- 2026-04-29 10:15:06: fix(scroll): preserve scroll position on route transitions
+- 2026-04-29 11:17:39: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-04-29 11:29:56: style(badge): color status pills for candidate applications
+- 2026-04-29 12:03:21: feat(live-room): add real-time status indicator for peers
+- 2026-04-29 12:07:43: feat(search): add instant query debounce for job search
+- 2026-04-29 12:14:20: perf(state): optimize render triggers in socket connection
+- 2026-04-29 14:07:16: perf(images): compress hero assets and background patterns
+- 2026-04-29 14:07:38: perf(code): optimize code-splitting routes dynamic imports
+- 2026-04-29 15:03:02: docs(readme): add troubleshooting section for local setups
+- 2026-04-29 16:34:14: chore(deps): clean up unused modules and developer utilities
+- 2026-04-29 16:47:20: style(buttons): refine hover states and focus outlines
+- 2026-04-29 17:11:58: fix(auth): correct email verification redirection logic
+- 2026-04-29 18:27:20: refactor(analytics): separate charts into isolated components
+- 2026-04-29 18:43:53: style(cards): refine dashboard stat cards box-shadows
+- 2026-04-29 18:45:58: perf(bundle): configure bundle visualizer options
+- 2026-04-30 09:49:00: test(auth): add unit test specs for signup inputs
+- 2026-04-30 10:06:55: feat(audit-log): draft system security access logging view
+- 2026-04-30 10:51:16: refactor(error): implement generic ErrorBoundary component
+- 2026-04-30 11:13:47: fix(keyboard): enable esc key to close full-screen modals
+- 2026-04-30 11:54:11: style(loader): add skeleton screens for table listings
+- 2026-04-30 12:18:49: feat(editor): integrate theme options for interview room
+- 2026-04-30 13:24:40: style(header): fix navigation bar to screen top z-index
+- 2026-04-30 14:13:08: refactor(api): centralize mock service helper declarations
+- 2026-04-30 15:50:35: fix(navigation): repair broken footer social links mapping
+- 2026-04-30 17:01:34: feat(jobs): add share job post copy to clipboard button
+- 2026-04-30 17:25:04: feat(candidate): list completed coding evaluations panel
+- 2026-04-30 17:41:35: refactor(layout): clean flexbox properties in hero grids
+- 2026-04-30 17:47:39: fix(eslint): resolve react-hooks warning dependencies
+- 2026-04-30 17:52:53: fix(click-outside): close dropdowns on outer container click
+- 2026-04-30 17:55:40: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-04-30 18:07:42: fix(validation): correct password strength checker threshold
+- 2026-04-30 18:26:39: fix(routing): prevent redirect loops on invalid access tags
+- 2026-04-30 18:47:40: feat(filters): add multi-select tags for candidate skills
+- 2026-05-01 09:41:41: style(theme): enhance dark mode background contrast accents
+- 2026-05-01 10:26:43: docs(api): update endpoints specification in dev notes
+- 2026-05-01 10:47:46: style(table): align columns and format salary details
+- 2026-05-01 11:18:10: style(loader): add skeleton screens for table listings
+- 2026-05-01 12:41:50: perf(code): optimize code-splitting routes dynamic imports
+- 2026-05-01 13:41:25: style(buttons): refine hover states and focus outlines
+- 2026-05-01 15:19:15: style(header): fix navigation bar to screen top z-index
+- 2026-05-01 15:43:23: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-05-01 15:59:45: style(input): increase input field padding for legibility
+- 2026-05-01 16:00:15: docs(changelog): draft initial release milestones list
+- 2026-05-01 16:53:14: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-05-01 17:45:42: refactor(error): implement generic ErrorBoundary component
+- 2026-05-01 18:21:53: fix(click-outside): close dropdowns on outer container click
+- 2026-05-01 18:37:53: fix(form-reset): clear validation errors on modal dismiss
+- 2026-05-02 09:37:31: feat(candidate): add profile export as PDF action
+- 2026-05-02 09:46:57: style(tooltip): customize dark tooltip text positions
+- 2026-05-02 09:53:02: feat(candidate): list completed coding evaluations panel
+- 2026-05-02 10:38:15: style(cards): refine dashboard stat cards box-shadows
+- 2026-05-02 10:44:41: feat(billing): design subscription card price plans layout
+- 2026-05-02 11:06:15: refactor(mock): expand mock data schemas with extra fields
+- 2026-05-02 11:27:55: refactor(layout): clean flexbox properties in hero grids
+- 2026-05-02 13:58:01: fix(auth): correct email verification redirection logic
+- 2026-05-02 14:03:09: fix(eslint): resolve react-hooks warning dependencies
+- 2026-05-02 14:48:26: docs(readme): add troubleshooting section for local setups
+- 2026-05-02 15:48:10: perf(render): memoize expensive listing computation items
+- 2026-05-02 16:23:39: style(fonts): load inter font face families asynchronously
+- 2026-05-02 16:25:33: perf(bundle): configure bundle visualizer options
+- 2026-05-02 16:42:32: fix(navigation): repair broken footer social links mapping
+- 2026-05-02 17:48:42: fix(timezone): format interview dates to client locale
+- 2026-05-03 09:40:50: perf(assets): convert icons to lightweight custom SVGs
+- 2026-05-03 10:47:40: refactor(api): centralize mock service helper declarations
+- 2026-05-03 10:55:33: feat(editor): integrate theme options for interview room
+- 2026-05-03 11:33:29: feat(live-room): add real-time status indicator for peers
+- 2026-05-03 11:50:00: refactor(routing): secure nested private route structures
+- 2026-05-03 11:57:41: fix(null-check): prevent undefined crash on mock details
+- 2026-05-03 12:47:00: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-05-03 12:47:39: docs(api): update endpoints specification in dev notes
+- 2026-05-03 12:52:21: perf(state): optimize render triggers in socket connection
+- 2026-05-03 13:02:25: chore(deps): clean up unused modules and developer utilities
+- 2026-05-03 14:17:37: feat(search): add instant query debounce for job search
+- 2026-05-03 14:38:21: style(table): align columns and format salary details
+- 2026-05-03 14:44:09: feat(toast): add success toast feedback on login success
+- 2026-05-03 15:55:10: style(modals): animate onboarding wizard slide transitions
+- 2026-05-03 16:36:04: style(tabs): adjust active borders color matching palette
+- 2026-05-03 17:12:38: fix(scroll): preserve scroll position on route transitions
+- 2026-05-04 09:36:42: test(auth): add unit test specs for signup inputs
+- 2026-05-04 09:44:05: fix(validation): correct password strength checker threshold
+- 2026-05-04 09:50:15: feat(filters): add multi-select tags for candidate skills
+- 2026-05-04 12:06:33: fix(routing): prevent redirect loops on invalid access tags
+- 2026-05-04 12:27:23: refactor(state): extract user preferences to state context
+- 2026-05-04 12:30:39: feat(audit-log): draft system security access logging view
+- 2026-05-04 13:45:38: feat(interview): implement editor syntax highlighting triggers
+- 2026-05-04 14:11:09: perf(images): compress hero assets and background patterns
+- 2026-05-04 14:28:51: style(logo): adjust SVG letter-spacing in text layout
+- 2026-05-04 15:15:43: feat(jobs): add share job post copy to clipboard button
+- 2026-05-04 15:28:27: refactor(forms): dry form validations with custom hooks
+- 2026-05-04 16:19:00: style(sidebar): add smooth drawer toggle transition effects
+- 2026-05-04 18:00:52: refactor(analytics): separate charts into isolated components
+- 2026-05-04 18:20:21: fix(keyboard): enable esc key to close full-screen modals
+- 2026-05-04 18:44:30: refactor(components): modularize UI shell layouts
+- 2026-05-04 18:56:55: style(badge): color status pills for candidate applications
+- 2026-05-05 09:44:05: style(theme): enhance dark mode background contrast accents
+- 2026-05-05 09:58:21: feat(recruiter): add filter candidates by status tags
+- 2026-05-05 09:58:47: fix(eslint): resolve react-hooks warning dependencies
+- 2026-05-05 10:16:43: feat(jobs): add share job post copy to clipboard button
+- 2026-05-05 11:04:27: fix(scroll): preserve scroll position on route transitions
+- 2026-05-05 11:50:53: style(input): increase input field padding for legibility
+- 2026-05-05 13:02:32: fix(keyboard): enable esc key to close full-screen modals
+- 2026-05-05 13:14:16: fix(null-check): prevent undefined crash on mock details
+- 2026-05-05 16:03:41: style(table): align columns and format salary details
+- 2026-05-05 16:34:13: fix(auth): correct email verification redirection logic
+- 2026-05-05 17:10:13: feat(billing): design subscription card price plans layout
+- 2026-05-05 17:12:24: perf(images): compress hero assets and background patterns
+- 2026-05-05 18:01:19: style(fonts): load inter font face families asynchronously
+- 2026-05-05 18:24:10: perf(render): memoize expensive listing computation items
+- 2026-05-05 18:40:59: style(buttons): refine hover states and focus outlines
+- 2026-05-06 09:30:07: fix(form-reset): clear validation errors on modal dismiss
+- 2026-05-06 09:39:23: refactor(mock): expand mock data schemas with extra fields
+- 2026-05-06 09:39:32: feat(search): add instant query debounce for job search
+- 2026-05-06 10:30:57: style(cards): refine dashboard stat cards box-shadows
+- 2026-05-06 11:12:00: style(loader): add skeleton screens for table listings
+- 2026-05-06 11:20:48: fix(navigation): repair broken footer social links mapping
+- 2026-05-06 13:03:03: fix(click-outside): close dropdowns on outer container click
+- 2026-05-06 14:00:49: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-05-06 14:26:16: style(modals): animate onboarding wizard slide transitions
+- 2026-05-06 15:43:19: style(header): fix navigation bar to screen top z-index
+- 2026-05-06 16:24:47: perf(state): optimize render triggers in socket connection
+- 2026-05-06 16:35:45: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-05-06 17:47:57: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-05-07 09:32:46: docs(api): update endpoints specification in dev notes
+- 2026-05-07 09:52:54: docs(readme): add troubleshooting section for local setups
+- 2026-05-07 10:26:58: style(tabs): adjust active borders color matching palette
+- 2026-05-07 11:12:36: perf(bundle): configure bundle visualizer options
+- 2026-05-07 11:44:49: refactor(state): extract user preferences to state context
+- 2026-05-07 11:47:02: feat(candidate): add profile export as PDF action
+- 2026-05-07 12:28:37: feat(toast): add success toast feedback on login success
+- 2026-05-07 13:34:24: refactor(forms): dry form validations with custom hooks
+- 2026-05-07 13:34:27: feat(interview): implement editor syntax highlighting triggers
+- 2026-05-07 13:59:50: chore(deps): clean up unused modules and developer utilities
+- 2026-05-07 14:00:34: feat(candidate): list completed coding evaluations panel
+- 2026-05-07 14:08:51: refactor(api): centralize mock service helper declarations
+- 2026-05-07 15:29:42: refactor(analytics): separate charts into isolated components
+- 2026-05-07 15:48:52: refactor(layout): clean flexbox properties in hero grids
+- 2026-05-07 17:10:52: style(badge): color status pills for candidate applications
+- 2026-05-07 17:11:56: style(sidebar): add smooth drawer toggle transition effects
+- 2026-05-07 18:48:13: style(theme): enhance dark mode background contrast accents
+- 2026-05-07 18:53:01: refactor(error): implement generic ErrorBoundary component
+- 2026-05-07 18:58:30: style(tooltip): customize dark tooltip text positions
+- 2026-05-08 09:36:05: docs(changelog): draft initial release milestones list
+- 2026-05-08 09:54:06: refactor(routing): secure nested private route structures
+- 2026-05-08 11:16:45: test(auth): add unit test specs for signup inputs
+- 2026-05-08 11:33:31: fix(validation): correct password strength checker threshold
+- 2026-05-08 11:33:49: feat(recruiter): add filter candidates by status tags
+- 2026-05-08 11:34:56: style(logo): adjust SVG letter-spacing in text layout
+- 2026-05-08 12:04:35: feat(live-room): add real-time status indicator for peers
+- 2026-05-08 12:53:45: feat(editor): integrate theme options for interview room
+- 2026-05-08 13:36:06: perf(assets): convert icons to lightweight custom SVGs
+- 2026-05-08 14:21:43: refactor(components): modularize UI shell layouts
+- 2026-05-08 14:51:26: fix(timezone): format interview dates to client locale
+- 2026-05-08 15:21:35: feat(audit-log): draft system security access logging view
+- 2026-05-08 16:50:08: feat(filters): add multi-select tags for candidate skills
+- 2026-05-08 17:00:24: fix(routing): prevent redirect loops on invalid access tags
+- 2026-05-08 17:25:06: perf(code): optimize code-splitting routes dynamic imports
+- 2026-05-08 17:31:10: refactor(components): modularize UI shell layouts
+- 2026-05-08 18:05:02: feat(filters): add multi-select tags for candidate skills
+- 2026-05-08 18:21:31: feat(candidate): list completed coding evaluations panel
+- 2026-05-08 18:48:08: style(logo): adjust SVG letter-spacing in text layout
+- 2026-05-09 09:35:39: fix(navigation): repair broken footer social links mapping
+- 2026-05-09 10:10:50: fix(keyboard): enable esc key to close full-screen modals
+- 2026-05-09 11:09:41: feat(interview): implement editor syntax highlighting triggers
+- 2026-05-09 12:14:09: refactor(analytics): separate charts into isolated components
+- 2026-05-09 12:34:17: style(cards): refine dashboard stat cards box-shadows
+- 2026-05-09 14:16:37: perf(assets): convert icons to lightweight custom SVGs
+- 2026-05-09 14:37:57: refactor(error): implement generic ErrorBoundary component
+- 2026-05-09 14:43:31: refactor(api): centralize mock service helper declarations
+- 2026-05-09 15:01:16: docs(api): update endpoints specification in dev notes
+- 2026-05-09 15:43:14: docs(changelog): draft initial release milestones list
+- 2026-05-09 16:41:13: feat(toast): add success toast feedback on login success
+- 2026-05-09 16:44:50: feat(jobs): add share job post copy to clipboard button
+- 2026-05-09 17:19:46: feat(candidate): add profile export as PDF action
+- 2026-05-09 18:20:54: style(badge): color status pills for candidate applications
+- 2026-05-09 18:52:17: feat(recruiter): add filter candidates by status tags
+- 2026-05-10 09:36:45: style(sidebar): add smooth drawer toggle transition effects
+- 2026-05-10 09:57:53: refactor(routing): secure nested private route structures
+- 2026-05-10 10:23:53: fix(routing): prevent redirect loops on invalid access tags
+- 2026-05-10 12:34:09: refactor(state): extract user preferences to state context
+- 2026-05-10 12:53:35: perf(render): memoize expensive listing computation items
+- 2026-05-10 13:17:18: perf(state): optimize render triggers in socket connection
+- 2026-05-10 13:19:39: fix(form-reset): clear validation errors on modal dismiss
+- 2026-05-10 13:27:46: docs(readme): add troubleshooting section for local setups
+- 2026-05-10 13:32:10: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-05-10 13:58:00: style(fonts): load inter font face families asynchronously
+- 2026-05-10 14:08:03: perf(code): optimize code-splitting routes dynamic imports
+- 2026-05-10 14:40:53: style(input): increase input field padding for legibility
+- 2026-05-10 15:38:19: fix(click-outside): close dropdowns on outer container click
+- 2026-05-10 15:49:41: chore(deps): clean up unused modules and developer utilities
+- 2026-05-10 16:05:45: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-05-10 16:47:46: feat(live-room): add real-time status indicator for peers
+- 2026-05-10 17:24:39: style(table): align columns and format salary details
+- 2026-05-11 09:51:44: test(auth): add unit test specs for signup inputs
+- 2026-05-11 10:04:50: feat(editor): integrate theme options for interview room
+- 2026-05-11 11:02:06: fix(validation): correct password strength checker threshold
+- 2026-05-11 12:41:46: feat(search): add instant query debounce for job search
+- 2026-05-11 13:14:58: style(modals): animate onboarding wizard slide transitions
+- 2026-05-11 13:27:55: style(loader): add skeleton screens for table listings
+- 2026-05-11 13:46:13: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-05-11 13:48:52: refactor(mock): expand mock data schemas with extra fields
+- 2026-05-11 13:49:35: fix(eslint): resolve react-hooks warning dependencies
+- 2026-05-11 14:15:47: perf(bundle): configure bundle visualizer options
+- 2026-05-11 15:35:10: fix(timezone): format interview dates to client locale
+- 2026-05-11 15:55:05: refactor(forms): dry form validations with custom hooks
+- 2026-05-11 16:50:32: fix(scroll): preserve scroll position on route transitions
+- 2026-05-11 18:08:36: style(tabs): adjust active borders color matching palette
+- 2026-05-12 10:05:41: perf(images): compress hero assets and background patterns
+- 2026-05-12 11:30:29: style(header): fix navigation bar to screen top z-index
+- 2026-05-12 11:32:05: feat(audit-log): draft system security access logging view
+- 2026-05-12 12:37:22: feat(billing): design subscription card price plans layout
+- 2026-05-12 13:05:03: style(theme): enhance dark mode background contrast accents
+- 2026-05-12 13:27:10: refactor(layout): clean flexbox properties in hero grids
+- 2026-05-12 13:34:54: fix(null-check): prevent undefined crash on mock details
+- 2026-05-12 14:32:51: style(buttons): refine hover states and focus outlines
+- 2026-05-12 14:34:39: style(tooltip): customize dark tooltip text positions
+- 2026-05-12 15:10:01: fix(auth): correct email verification redirection logic
+- 2026-05-12 15:36:02: feat(candidate): list completed coding evaluations panel
+- 2026-05-12 15:45:23: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-05-12 16:35:29: perf(code): optimize code-splitting routes dynamic imports
+- 2026-05-12 17:00:11: fix(null-check): prevent undefined crash on mock details
+- 2026-05-12 17:19:12: feat(billing): design subscription card price plans layout
+- 2026-05-12 17:39:31: fix(eslint): resolve react-hooks warning dependencies
+- 2026-05-12 17:54:56: docs(changelog): draft initial release milestones list
+- 2026-05-12 18:10:46: fix(timezone): format interview dates to client locale
+- 2026-05-12 18:13:28: fix(auth): correct email verification redirection logic
+- 2026-05-13 09:45:54: refactor(layout): clean flexbox properties in hero grids
+- 2026-05-13 11:16:45: perf(images): compress hero assets and background patterns
+- 2026-05-13 11:34:54: test(auth): add unit test specs for signup inputs
+- 2026-05-13 12:18:24: fix(navigation): repair broken footer social links mapping
+- 2026-05-13 12:30:16: perf(assets): convert icons to lightweight custom SVGs
+- 2026-05-13 13:58:54: fix(scroll): preserve scroll position on route transitions
+- 2026-05-13 14:03:14: style(loader): add skeleton screens for table listings
+- 2026-05-13 14:18:49: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-05-13 15:12:32: style(input): increase input field padding for legibility
+- 2026-05-13 15:25:27: fix(form-reset): clear validation errors on modal dismiss
+- 2026-05-13 16:11:59: refactor(error): implement generic ErrorBoundary component
+- 2026-05-13 16:23:59: style(logo): adjust SVG letter-spacing in text layout
+- 2026-05-13 17:17:35: feat(filters): add multi-select tags for candidate skills
+- 2026-05-13 18:15:05: feat(audit-log): draft system security access logging view
+- 2026-05-13 18:32:20: docs(api): update endpoints specification in dev notes
+- 2026-05-14 09:30:39: feat(recruiter): add filter candidates by status tags
+- 2026-05-14 09:47:05: feat(jobs): add share job post copy to clipboard button
+- 2026-05-14 10:00:36: refactor(routing): secure nested private route structures
+- 2026-05-14 11:51:31: perf(render): memoize expensive listing computation items
+- 2026-05-14 12:28:23: fix(click-outside): close dropdowns on outer container click
+- 2026-05-14 12:57:23: refactor(components): modularize UI shell layouts
+- 2026-05-14 14:12:26: fix(keyboard): enable esc key to close full-screen modals
+- 2026-05-14 14:26:19: style(fonts): load inter font face families asynchronously
+- 2026-05-14 14:53:42: style(tabs): adjust active borders color matching palette
+- 2026-05-14 15:07:11: style(cards): refine dashboard stat cards box-shadows
+- 2026-05-14 15:32:46: refactor(state): extract user preferences to state context
+- 2026-05-14 16:11:44: style(tooltip): customize dark tooltip text positions
+- 2026-05-14 16:56:37: feat(candidate): add profile export as PDF action
+- 2026-05-14 16:56:39: perf(bundle): configure bundle visualizer options
+- 2026-05-14 18:50:27: style(modals): animate onboarding wizard slide transitions
+- 2026-05-14 18:57:37: docs(readme): add troubleshooting section for local setups
+- 2026-05-15 09:37:47: style(header): fix navigation bar to screen top z-index
+- 2026-05-15 11:03:47: chore(deps): clean up unused modules and developer utilities
+- 2026-05-15 11:32:16: refactor(api): centralize mock service helper declarations
+- 2026-05-15 11:51:24: fix(validation): correct password strength checker threshold
+- 2026-05-15 11:53:53: style(badge): color status pills for candidate applications
+- 2026-05-15 13:09:21: refactor(forms): dry form validations with custom hooks
+- 2026-05-15 13:20:49: feat(toast): add success toast feedback on login success
+- 2026-05-15 13:23:14: feat(editor): integrate theme options for interview room
+- 2026-05-15 15:02:54: style(sidebar): add smooth drawer toggle transition effects
+- 2026-05-15 15:05:00: perf(state): optimize render triggers in socket connection
+- 2026-05-15 15:13:25: fix(routing): prevent redirect loops on invalid access tags
+- 2026-05-15 17:02:39: style(table): align columns and format salary details
+- 2026-05-15 17:04:38: refactor(mock): expand mock data schemas with extra fields
+- 2026-05-15 17:24:01: style(theme): enhance dark mode background contrast accents
+- 2026-05-15 17:30:39: feat(live-room): add real-time status indicator for peers
+- 2026-05-15 18:13:57: feat(search): add instant query debounce for job search
+- 2026-05-15 18:17:19: feat(interview): implement editor syntax highlighting triggers
+- 2026-05-15 18:46:11: refactor(analytics): separate charts into isolated components
+- 2026-05-15 18:47:56: style(buttons): refine hover states and focus outlines
+- 2026-05-16 09:37:18: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-05-16 09:40:39: feat(candidate): add profile export as PDF action
+- 2026-05-16 09:54:39: refactor(layout): clean flexbox properties in hero grids
+- 2026-05-16 10:31:20: style(loader): add skeleton screens for table listings
+- 2026-05-16 11:33:26: refactor(state): extract user preferences to state context
+- 2026-05-16 12:16:11: feat(billing): design subscription card price plans layout
+- 2026-05-16 12:35:11: fix(null-check): prevent undefined crash on mock details
+- 2026-05-16 12:45:40: perf(bundle): configure bundle visualizer options
+- 2026-05-16 13:18:25: perf(state): optimize render triggers in socket connection
+- 2026-05-16 13:53:45: feat(search): add instant query debounce for job search
+- 2026-05-16 13:55:42: docs(changelog): draft initial release milestones list
+- 2026-05-16 13:57:01: feat(editor): integrate theme options for interview room
+- 2026-05-16 15:07:22: refactor(routing): secure nested private route structures
+- 2026-05-16 15:36:00: refactor(api): centralize mock service helper declarations
+- 2026-05-16 16:08:52: style(tooltip): customize dark tooltip text positions
+- 2026-05-16 16:10:23: feat(recruiter): add filter candidates by status tags
+- 2026-05-16 16:24:46: fix(eslint): resolve react-hooks warning dependencies
+- 2026-05-16 17:20:18: fix(form-reset): clear validation errors on modal dismiss
+- 2026-05-17 09:46:16: fix(scroll): preserve scroll position on route transitions
+- 2026-05-17 09:50:30: perf(render): memoize expensive listing computation items
+- 2026-05-17 11:22:04: fix(routing): prevent redirect loops on invalid access tags
+- 2026-05-17 12:14:41: fix(auth): correct email verification redirection logic
+- 2026-05-17 12:40:38: style(buttons): refine hover states and focus outlines
+- 2026-05-17 12:54:56: style(table): align columns and format salary details
+- 2026-05-17 13:05:45: refactor(error): implement generic ErrorBoundary component
+- 2026-05-17 14:02:06: docs(readme): add troubleshooting section for local setups
+- 2026-05-17 14:27:44: refactor(forms): dry form validations with custom hooks
+- 2026-05-17 14:38:16: refactor(analytics): separate charts into isolated components
+- 2026-05-17 14:44:37: style(modals): animate onboarding wizard slide transitions
+- 2026-05-17 14:48:45: fix(timezone): format interview dates to client locale
+- 2026-05-17 15:18:28: fix(validation): correct password strength checker threshold
+- 2026-05-17 16:02:53: refactor(components): modularize UI shell layouts
+- 2026-05-17 16:29:02: style(logo): adjust SVG letter-spacing in text layout
+- 2026-05-17 18:00:18: chore(deps): clean up unused modules and developer utilities
+- 2026-05-17 18:26:22: feat(filters): add multi-select tags for candidate skills
+- 2026-05-18 09:43:07: refactor(mock): expand mock data schemas with extra fields
+- 2026-05-18 10:23:22: perf(assets): convert icons to lightweight custom SVGs
+- 2026-05-18 11:02:21: style(tabs): adjust active borders color matching palette
+- 2026-05-18 12:28:51: perf(code): optimize code-splitting routes dynamic imports
+- 2026-05-18 13:08:47: feat(jobs): add share job post copy to clipboard button
+- 2026-05-18 13:26:40: fix(navigation): repair broken footer social links mapping
+- 2026-05-18 13:33:21: style(header): fix navigation bar to screen top z-index
+- 2026-05-18 14:04:21: style(cards): refine dashboard stat cards box-shadows
+- 2026-05-18 15:18:50: test(auth): add unit test specs for signup inputs
+- 2026-05-18 17:00:51: fix(click-outside): close dropdowns on outer container click
+- 2026-05-18 17:01:11: feat(recruiter): add notes overlay drawer in candidates list
+- 2026-05-18 17:03:16: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-05-18 17:53:58: style(theme): enhance dark mode background contrast accents
+- 2026-05-18 18:18:34: style(fonts): load inter font face families asynchronously
+- 2026-05-18 18:20:36: feat(toast): add success toast feedback on login success
+- 2026-05-19 10:12:26: style(input): increase input field padding for legibility
+- 2026-05-19 10:18:31: docs(api): update endpoints specification in dev notes
+- 2026-05-19 13:08:52: fix(keyboard): enable esc key to close full-screen modals
+- 2026-05-19 13:58:06: perf(images): compress hero assets and background patterns
+- 2026-05-19 14:23:07: style(sidebar): add smooth drawer toggle transition effects
+- 2026-05-19 14:56:55: fix(responsive): optimize grid layout for mobile breakpoints
+- 2026-05-19 15:24:13: feat(audit-log): draft system security access logging view
+- 2026-05-19 15:48:08: style(badge): color status pills for candidate applications
+- 2026-05-19 15:49:00: feat(interview): implement editor syntax highlighting triggers
+- 2026-05-19 15:55:46: feat(candidate): list completed coding evaluations panel
+- 2026-05-19 16:14:28: feat(live-room): add real-time status indicator for peers
+- 2026-05-19 16:22:34: feat(candidate): add profile export as PDF action
+- 2026-05-19 17:03:22: fix(accessibility): add missing aria-labels to icon buttons
+- 2026-05-19 18:48:01: perf(code): optimize code-splitting routes dynamic imports
+- 2026-05-19 18:49:02: fix(scroll): preserve scroll position on route transitions
+- 2026-05-20 09:50:02: feat(search): add instant query debounce for job search
+- 2026-05-20 10:25:40: feat(jobs): add share job post copy to clipboard button
+- 2026-05-20 11:06:13: refactor(components): modularize UI shell layouts
+- 2026-05-20 11:48:17: style(table): align columns and format salary details
+- 2026-05-20 11:54:20: feat(audit-log): draft system security access logging view
+- 2026-05-20 12:16:24: perf(bundle): configure bundle visualizer options
+- 2026-05-20 14:17:13: refactor(api): centralize mock service helper declarations
+- 2026-05-20 14:27:12: fix(click-outside): close dropdowns on outer container click
+- 2026-05-20 14:48:01: refactor(mock): expand mock data schemas with extra fields
+- 2026-05-20 15:02:46: fix(form-reset): clear validation errors on modal dismiss
+- 2026-05-20 15:07:37: perf(state): optimize render triggers in socket connection
+- 2026-05-20 17:57:36: fix(eslint): resolve react-hooks warning dependencies
+- 2026-05-20 18:03:26: refactor(analytics): separate charts into isolated components
+- 2026-05-20 18:05:42: feat(candidate): list completed coding evaluations panel
+- 2026-05-20 18:33:24: fix(keyboard): enable esc key to close full-screen modals
+- 2026-05-21 09:35:48: fix(routing): prevent redirect loops on invalid access tags
+- 2026-05-21 09:42:27: style(tabs): adjust active borders color matching palette
+- 2026-05-21 10:15:59: style(cards): refine dashboard stat cards box-shadows
+- 2026-05-21 10:38:01: feat(toast): add success toast feedback on login success
+- 2026-05-21 10:53:12: feat(interview): implement editor syntax highlighting triggers
+- 2026-05-21 10:55:47: style(loader): add skeleton screens for table listings
+- 2026-05-21 14:23:38: perf(assets): convert icons to lightweight custom SVGs
+- 2026-05-21 14:43:18: docs(api): update endpoints specification in dev notes
+- 2026-05-21 14:51:30: refactor(forms): dry form validations with custom hooks
+- 2026-05-21 15:40:05: perf(images): compress hero assets and background patterns
+- 2026-05-21 15:52:28: fix(navigation): repair broken footer social links mapping
+- 2026-05-21 15:57:06: feat(filters): add multi-select tags for candidate skills
+- 2026-05-21 16:40:37: feat(recruiter): add filter candidates by status tags
+- 2026-05-21 16:45:46: perf(render): memoize expensive listing computation items
+- 2026-05-21 17:03:11: style(header): fix navigation bar to screen top z-index
+- 2026-05-21 17:18:59: style(fonts): load inter font face families asynchronously
+- 2026-05-21 17:50:20: fix(validation): correct password strength checker threshold

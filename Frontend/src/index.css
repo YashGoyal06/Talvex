@@ -1,0 +1,226 @@
+/* ─── Google Sans font import ─────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  /* Tailwind v4 CSS Theme Configuration */
+  --font-sans: "Google Sans", system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Menlo', monospace;
+  --font-heading: "Google Sans", system-ui, sans-serif;
+
+  /* Primary Palette */
+  --color-primary: #2563EB;
+  --color-primary-light: #3B82F6;
+  --color-primary-dark: #1D4ED8;
+
+  /* Secondary Palette */
+  --color-secondary: #6366F1;
+  --color-secondary-light: #818CF8;
+  --color-secondary-dark: #4F46E5;
+
+  /* Tertiary Palette */
+  --color-tertiary: #BC4800;
+  --color-tertiary-light: #EA580C;
+
+  /* Neutral Palette - White Minimalist Theme */
+  --color-surface: #FFFFFF;
+  --color-surface-light: #F9FAFB;
+  --color-surface-lighter: #F3F4F6;
+
+  /* Legacy brand references for compatibility with previously written components */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-900: #1e3a8a;
+}
+
+/* ─── Global Google Sans application ──────────────────────────────────────── */
+/*
+   Tailwind's preflight resets font-family on many elements.
+   This block ensures Google Sans + its variable-font settings
+   are applied to EVERY element on the page, not just <body>.
+*/
+*,
+*::before,
+*::after {
+  font-family: "Google Sans", system-ui, sans-serif;
+  font-optical-sizing: auto;
+  font-variation-settings: "GRAD" 0;
+}
+
+/* Monospace elements keep JetBrains Mono */
+code,
+kbd,
+samp,
+pre,
+.font-mono,
+textarea.font-mono {
+  font-family: 'JetBrains Mono', 'Menlo', monospace !important;
+  font-optical-sizing: auto;
+  font-variation-settings: normal;
+}
+
+@layer base {
+  html {
+    font-family: "Google Sans", system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "GRAD" 0;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: #1F2937;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: "Google Sans", system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    font-weight: 400;
+    font-variation-settings: "GRAD" 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Google Sans", system-ui, sans-serif;
+    color: #111827;
+    font-optical-sizing: auto;
+    font-style: normal;
+    font-variation-settings: "GRAD" 0;
+  }
+
+  /* Inputs, buttons, selects, textareas often get browser default fonts — override them */
+  input,
+  button,
+  select,
+  textarea,
+  optgroup,
+  option {
+    font-family: "Google Sans", system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "GRAD" 0;
+  }
+
+  /* Table elements */
+  table,
+  th,
+  td {
+    font-family: "Google Sans", system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "GRAD" 0;
+  }
+}
+
+@layer components {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: #F9FAFB;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #D1D5DB;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #9CA3AF;
+  }
+
+  /* Glass panel - clean white card with subtle border */
+  .glass-panel {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  }
+
+  .btn-primary {
+    @apply bg-neutral-900 hover:bg-neutral-800 text-white font-medium py-2 px-4 rounded-lg transition-colors focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2;
+  }
+
+  .btn-secondary {
+    @apply bg-white hover:bg-neutral-50 text-neutral-700 font-medium py-2 px-4 rounded-lg transition-colors border border-neutral-200 focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2;
+  }
+}
+
+/*
+ * GLOBAL LIGHT-THEME TEXT OVERRIDES
+ */
+
+/* Headings & bold text: white → near-black */
+.dashboard-content .text-white {
+  color: #111827 !important;
+}
+
+/* Gray scale remapping: light grays → dark grays for readability */
+.dashboard-content .text-gray-200 {
+  color: #374151 !important;
+}
+.dashboard-content .text-gray-300 {
+  color: #4B5563 !important;
+}
+.dashboard-content .text-gray-400 {
+  color: #6B7280 !important;
+}
+.dashboard-content .text-gray-500 {
+  color: #9CA3AF !important;
+}
+.dashboard-content .text-gray-600 {
+  color: #4B5563 !important;
+}
+
+/* Border remapping: dark borders → light borders */
+.dashboard-content .border-gray-700,
+.dashboard-content .border-gray-700\/50,
+.dashboard-content .border-gray-800,
+.dashboard-content .border-gray-800\/50 {
+  border-color: #E5E7EB !important;
+}
+
+/* Background surface overrides inside dashboards */
+.dashboard-content .bg-surface-light,
+.dashboard-content .bg-surface-light\/50,
+.dashboard-content .bg-surface-light\/30,
+.dashboard-content .bg-surface-light\/20,
+.dashboard-content .bg-surface-light\/40 {
+  background-color: #F9FAFB !important;
+}
+.dashboard-content .bg-surface-lighter,
+.dashboard-content .bg-surface-lighter\/50 {
+  background-color: #F3F4F6 !important;
+}
+.dashboard-content .bg-gray-800 {
+  background-color: #F3F4F6 !important;
+}
+.dashboard-content .bg-\[#0F172A\] {
+  background-color: #FFFFFF !important;
+}
+
+/* Hover states: dark hover → light hover */
+.dashboard-content .hover\:bg-gray-800:hover {
+  background-color: #F3F4F6 !important;
+}
+.dashboard-content .hover\:text-white:hover {
+  color: #111827 !important;
+}
+.dashboard-content .hover\:bg-surface-light\/30:hover {
+  background-color: #F9FAFB !important;
+}
+
+/* Divide color overrides */
+.dashboard-content .divide-gray-800 > * + * {
+  border-color: #E5E7EB !important;
+}
+
+/* Placeholder text overrides */
+.dashboard-content .placeholder-gray-600::placeholder {
+  color: #9CA3AF !important;
+}
+
+/* Focus ring overrides */
+.dashboard-content .focus\:ring-offset-surface:focus {
+  --tw-ring-offset-color: #FFFFFF !important;
+}
