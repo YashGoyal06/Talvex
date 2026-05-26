@@ -157,7 +157,11 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-]
+] + [origin.strip() for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
+
+# If not in debug mode, append wildcard to ALLOWED_HOSTS to prevent host header blocking in Hugging Face Spaces proxy
+if not DEBUG:
+    ALLOWED_HOSTS.append('*')
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
