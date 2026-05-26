@@ -3,6 +3,63 @@ from .models import Candidate, Application
 from jobs.models import Job
 from .parser import parse_resume
 import os
+import uuid
+import time
+import tempfile
+import requests as http_requests
+import jwt
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def upload_file_to_supabase(file_obj, bucket_name="resumes"):
+    """Upload a file to Supabase Storage and return the public URL."""
+    ext = os.path.splitext(file_obj.name)[1]
+    file_name = f"{uuid.uuid4()}{ext}"
+
+    payload = {
+        "role": "service_role",
+        "iss": "supabase",
+        "iat": int(time.time()),
+        "exp": int(time.time() + 3600)
+    }
+    token = jwt.encode(payload, settings.SUPABASE_JWT_SECRET, algorithm="HS256")
+
+    # Ensure the bucket exists
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    bucket_check_url = f"{settings.SUPABASE_URL}/storage/v1/bucket/{bucket_name}"
+    check_res = http_requests.get(bucket_check_url, headers=headers)
+
+    if check_res.status_code != 200:
+        create_bucket_url = f"{settings.SUPABASE_URL}/storage/v1/bucket"
+        body = {"id": bucket_name, "name": bucket_name, "public": True}
+        http_requests.post(create_bucket_url, headers=headers, json=body)
+
+    # Upload file
+    upload_headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": file_obj.content_type or "application/octet-stream"
+    }
+    upload_url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket_name}/{file_name}"
+
+    file_data = file_obj.read()
+    res = http_requests.post(upload_url, headers=upload_headers, data=file_data)
+
+    if res.status_code == 200:
+        public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{file_name}"
+        # Reset file position so it can be read again for parsing
+        file_obj.seek(0)
+        return public_url
+    else:
+        logger.error(f"Failed to upload to Supabase Storage: {res.status_code} - {res.text}")
+        file_obj.seek(0)
+        return None
+
 
 class CandidateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -61,26 +118,39 @@ class SubmitApplicationSerializer(serializers.Serializer):
             }
         )
 
-        # Create application (this stores the resume file)
+        # Upload resume to Supabase Storage
+        resume_url = upload_file_to_supabase(resume_file, bucket_name="resumes")
+        if not resume_url:
+            resume_url = ''  # Fallback: store empty if upload fails
+
+        # Create application with the Supabase URL
         application = Application.objects.create(
             company=job.company,
             job=job,
             candidate=candidate,
             cover_letter=cover_letter,
-            resume_file=resume_file,
+            resume_file=resume_url,
             current_stage="Applied",
             status="Active"
         )
 
-        # Triggers parsing
+        # Parse resume using a temp file (since file is in-memory)
         try:
-            file_path = application.resume_file.path
-            parsed_data, confidence = parse_resume(file_path)
-            
+            ext = os.path.splitext(resume_file.name)[1]
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                for chunk in resume_file.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+
+            parsed_data, confidence = parse_resume(tmp_path)
+
+            # Clean up temp file
+            os.unlink(tmp_path)
+
             # Update candidate details with parsed info
             candidate.parsed_resume = parsed_data
             
-            # Calculate job-specific ATS match score instead of using static parser confidence
+            # Calculate job-specific ATS match score
             from .parser import calculate_ats_score
             ats_score = calculate_ats_score(parsed_data, job)
             candidate.confidence_score = ats_score
@@ -90,9 +160,12 @@ class SubmitApplicationSerializer(serializers.Serializer):
             candidate.save()
         except Exception as e:
             # Keep application active even if parser errors out
-            # Log the parser error
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Error executing resume parser during application submit: {e}")
+            # Clean up temp file on error too
+            try:
+                if 'tmp_path' in locals():
+                    os.unlink(tmp_path)
+            except OSError:
+                pass
 
         return application

@@ -46,7 +46,6 @@ function App() {
           <Route path="jobs" element={<AdminJobs />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="settings" element={<SettingsView />} />
-          <Route path="support" element={<SupportView />} />
         </Route>
 
         {/* Recruiter Routes */}
@@ -58,7 +57,6 @@ function App() {
           <Route path="interviews" element={<InterviewsView />} />
           <Route path="ats" element={<KanbanBoard />} />
           <Route path="settings" element={<SettingsView />} />
-          <Route path="support" element={<SupportView />} />
         </Route>
 
         {/* Candidate Routes */}
@@ -66,7 +64,6 @@ function App() {
           <Route path="dashboard" element={<CandidateDashboard />} />
           <Route path="interviews" element={<CandidateInterviews />} />
           <Route path="settings" element={<SettingsView />} />
-          <Route path="support" element={<SupportView />} />
         </Route>
 
         {/* Standalone full-screen routes (no sidebar) */}

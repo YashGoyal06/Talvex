@@ -21,7 +21,7 @@ class Application(TenantModel):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name="applications")
     current_stage = models.CharField(max_length=100, default="Applied")
     cover_letter = models.TextField(blank=True, null=True)
-    resume_file = models.FileField(upload_to="resumes/", max_length=500)
+    resume_file = models.CharField(max_length=1000, blank=True, default='')  # Supabase Storage URL
     internal_notes = models.JSONField(default=list, blank=True) # [{"recruiter": "Mark", "note": "text", "date": "..."}]
     status = models.CharField(max_length=50, default="Active") # Active, Offered, Hired, Rejected
     created_at = models.DateTimeField(default=timezone.now)

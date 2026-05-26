@@ -47,3 +47,6 @@ htmlcov/
 # Temporary Files
 *.swp
 *.swo
+
+# One-time migration scripts
+migrate_to_supabase.py

@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Briefcase, Video, Activity, 
-  Settings, HelpCircle, LogOut, Columns3, Search, Bell, Sun, Cloud, Calendar, User
+  LogOut, Columns3, Search, Bell, Sun, Cloud, Calendar, User
 } from 'lucide-react';
-import { api } from '../../api/api';
 
 const Sidebar = ({ role }) => {
   const navigate = useNavigate();
@@ -20,31 +19,8 @@ const Sidebar = ({ role }) => {
   const shortName = storedName.split(' ')[0];
   const isAdminTheme = role === 'admin';
 
-  const handleAvatarClick = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const res = await api.auth.uploadFile(file, 'avatars');
-        if (res.url) {
-          localStorage.setItem('userPhoto', res.url);
-          const role = localStorage.getItem('userRole');
-          if (role === 'recruiter' || role === 'admin') {
-            await api.auth.updateProfile({ photo_url: res.url });
-          } else if (role === 'candidate') {
-            const email = localStorage.getItem('userEmail');
-            await api.candidates.updateProfile(email, { photo_url: res.url });
-          }
-          window.location.reload();
-        }
-      } catch (err) {
-        console.error('Error uploading avatar:', err);
-      }
-    };
-    input.click();
+  const handleProfileClick = () => {
+    navigate(`/${role}/settings`);
   };
 
   return (
@@ -89,37 +65,30 @@ const Sidebar = ({ role }) => {
       </div>
 
       {/* Footer Section & Profile */}
-      <div className="space-y-4">
-        <div className={`border-t pt-4 space-y-1 ${isAdminTheme ? 'border-neutral-800/80' : 'border-neutral-100/80'}`}>
-          <NavItem icon={<Settings size={18} />} label="Settings" to={`/${role}/settings`} isAdminTheme={isAdminTheme} />
-          <NavItem icon={<HelpCircle size={18} />} label="Support" to={`/${role}/support`} isAdminTheme={isAdminTheme} />
-        </div>
+      <div>
 
         {/* User Card */}
         <div className={`border-t pt-4 flex items-center justify-between ${isAdminTheme ? 'border-neutral-800/85' : 'border-neutral-100/80'}`}>
-          <div className="flex items-center gap-3">
-            <div 
-              onClick={handleAvatarClick} 
-              className="relative cursor-pointer group shrink-0" 
-              title="Click to upload profile photo"
-            >
+          <div 
+            onClick={handleProfileClick} 
+            className="flex items-center gap-3 cursor-pointer group"
+            title="Open Profile"
+          >
+            <div className="relative shrink-0">
               {userPhoto ? (
                 <img 
                   src={userPhoto} 
-                  className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm transition-transform duration-300 group-hover:scale-105"
+                  className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm transition-transform duration-300 group-hover:scale-110"
                   alt="Avatar" 
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-850 border-2 border-white shadow-sm flex items-center justify-center text-neutral-500 transition-transform duration-300 group-hover:scale-105">
+                <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-850 border-2 border-white shadow-sm flex items-center justify-center text-neutral-500 transition-transform duration-300 group-hover:scale-110">
                   <User size={18} />
                 </div>
               )}
-              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px] text-white font-bold select-none">
-                EDIT
-              </div>
             </div>
             <div>
-              <p className={`text-sm font-bold leading-none ${isAdminTheme ? 'text-white' : 'text-neutral-900'}`}>{shortName}</p>
+              <p className={`text-sm font-bold leading-none transition-colors duration-200 ${isAdminTheme ? 'text-white group-hover:text-[#FF6B00]' : 'text-neutral-900 group-hover:text-orange-500'}`}>{shortName}</p>
               <p className={`text-[10px] font-semibold uppercase tracking-wider mt-1 ${isAdminTheme ? 'text-[#FF6B00]' : 'text-neutral-400'}`}>{role}</p>
             </div>
           </div>
