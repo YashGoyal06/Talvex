@@ -68,6 +68,7 @@ export default function Login() {
 
   // Sync email/password when toggling role tabs
   useEffect(() => {
+    console.log("Selected role in Talvax Login:", role);
     setError('');
     if (testCredentials.length > 0) {
       const match = testCredentials.find(tc => tc.role === role);
@@ -355,7 +356,7 @@ export default function Login() {
               </button>
 
               {role === 'candidate' && (
-                <>
+                <div key="google-signin-container">
                   <div className="flex items-center my-4">
                     <div className="flex-grow border-t border-neutral-200" />
                     <span className="mx-4 text-xs font-bold text-neutral-400 uppercase tracking-wider">or</span>
@@ -376,7 +377,7 @@ export default function Login() {
                     </svg>
                     Continue with Google
                   </button>
-                </>
+                </div>
               )}
             </form>
 
