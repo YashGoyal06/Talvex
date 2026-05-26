@@ -60,6 +60,9 @@ def parse_resume_heuristics(text):
     if not text:
         return parsed
 
+    lines = [l.strip() for l in text.split('\n')]
+    non_empty_lines = [l for l in lines if l]
+
     # 1. Parse Email
     email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
     if email_match:
@@ -70,34 +73,209 @@ def parse_resume_heuristics(text):
     if phone_match:
         parsed["phone"] = phone_match.group(0)
 
-    # 3. Parse Name (usually on the first line)
-    lines = [l.strip() for l in text.split('\n') if l.strip()]
-    if lines:
-        # Avoid lines that contain 'resume' or common email headers
-        for line in lines[:3]:
-            if '@' not in line and 'resume' not in line.lower() and len(line.split()) <= 4:
+    # 3. Parse Name (usually on the first line or first few lines)
+    if non_empty_lines:
+        for line in non_empty_lines[:4]:
+            # Avoid lines with contact info or headers
+            if (
+                '@' not in line 
+                and 'resume' not in line.lower() 
+                and 'curriculum' not in line.lower()
+                and 'cv' not in line.lower()
+                and not re.search(r'\d{3,}', line) # no phone numbers/dates
+                and len(line.split()) <= 4
+                and not line.endswith(':')
+            ):
                 parsed["name"] = line
                 break
 
-    # 4. Parse Skills (keyword check against a predefined taxonomy)
-    common_skills = [
-        "python", "django", "javascript", "typescript", "react", "vue", "angular", "node", "express",
-        "html", "css", "tailwind", "bootstrap", "postgres", "sql", "mysql", "mongodb", "redis",
-        "aws", "docker", "kubernetes", "git", "java", "c++", "c", "rust", "go", "ruby", "php"
-    ]
+    # 4. Parse Skills (keyword check against a rich predefined list)
+    skills_taxonomy = {
+        "python": "Python", "django": "Django", "flask": "Flask", "fastapi": "FastAPI",
+        "javascript": "JavaScript", "typescript": "TypeScript", "react": "React", 
+        "vue": "Vue", "angular": "Angular", "node": "Node.js", "express": "Express",
+        "html": "HTML", "css": "CSS", "tailwind": "Tailwind CSS", "bootstrap": "Bootstrap",
+        "postgres": "PostgreSQL", "postgresql": "PostgreSQL", "sql": "SQL", "mysql": "MySQL", 
+        "mongodb": "MongoDB", "redis": "Redis", "sqlite": "SQLite", "supabase": "Supabase",
+        "aws": "AWS", "docker": "Docker", "kubernetes": "Kubernetes", "git": "Git", 
+        "github": "GitHub", "java": "Java", "c++": "C++", "c#": "C#", "rust": "Rust", 
+        "go": "Go", "golang": "Go", "ruby": "Ruby", "php": "PHP", "figma": "Figma", 
+        "ui/ux": "UI/UX", "machine learning": "Machine Learning", "deep learning": "Deep Learning",
+        "nlp": "NLP", "pytorch": "PyTorch", "tensorflow": "TensorFlow", "pandas": "Pandas", 
+        "numpy": "NumPy", "scikit-learn": "Scikit-Learn", "graphql": "GraphQL", "rest api": "REST API"
+    }
     
     text_lower = text.lower()
     found_skills = []
-    for skill in common_skills:
-        # Match word boundaries to prevent matching 'go' inside 'google'
-        if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
-            found_skills.append(skill.capitalize() if skill != 'css' and skill != 'html' else skill.upper())
+    for skill_key, skill_name in skills_taxonomy.items():
+        pattern = r'\b' + re.escape(skill_key) + r'\b'
+        if re.search(pattern, text_lower):
+            if skill_name not in found_skills:
+                found_skills.append(skill_name)
     parsed["skills"] = found_skills
 
     # 5. Experience estimate
-    exp_matches = re.findall(r'(\d+)\+?\s*(?:years?|yrs?)\b', text_lower)
-    if exp_matches:
-        parsed["experience_years"] = max([int(x) for x in exp_matches])
+    # Look for "X years of experience" or similar
+    exp_patterns = [
+        r'(\d+)\+?\s*(?:years?|yrs?)(?:\s+(?:of\s+)?experience)?\b',
+        r'experience[:\s]+(\d+)\+?\s*(?:years?|yrs?)'
+    ]
+    exp_years = 0
+    for pattern in exp_patterns:
+        matches = re.findall(pattern, text_lower)
+        if matches:
+            exp_years = max(exp_years, max([int(x) for x in matches]))
+    
+    parsed["experience_years"] = exp_years
+
+    # 6. Parse Education
+    degree_keywords = ["b.s.", "m.s.", "b.tech", "m.tech", "bachelor", "master", "ph.d", "phd", "b.sc", "m.sc", "degree", "diploma", "high school"]
+    inst_keywords = ["university", "college", "institute", "school", "academy", "polytechnic"]
+    
+    for line in non_empty_lines:
+        line_lower = line.lower()
+        has_degree = any(dk in line_lower for dk in degree_keywords)
+        has_inst = any(ik in line_lower for ik in inst_keywords)
+        
+        if has_degree or has_inst:
+            year_match = re.search(r'\b(19\d{2}|20\d{2})\b', line)
+            year = int(year_match.group(0)) if year_match else None
+            
+            degree = "Degree"
+            for dk in degree_keywords:
+                if dk in line_lower:
+                    idx = line_lower.find(dk)
+                    degree_part = line[idx:idx+len(dk)]
+                    if dk == "b.s.": degree = "B.S. Computer Science" if "computer" in line_lower else "B.S."
+                    elif dk == "b.tech": degree = "B.Tech Computer Science" if "computer" in line_lower else "B.Tech"
+                    elif dk == "m.s.": degree = "M.S. Computer Science" if "computer" in line_lower else "M.S."
+                    elif dk == "bachelor": degree = "Bachelor's Degree"
+                    elif dk == "master": degree = "Master's Degree"
+                    else: degree = degree_part.upper()
+                    break
+            
+            inst = "University"
+            for ik in inst_keywords:
+                if ik in line_lower:
+                    parts = re.split(r'[,–\-—]', line)
+                    for p in parts:
+                        if ik in p.lower():
+                            inst = p.strip()
+                            break
+                    break
+            
+            parsed["education"].append({
+                "degree": degree,
+                "institution": inst,
+                "year": year or 2020
+            })
+            
+    unique_edu = []
+    edu_keys = set()
+    for edu in parsed["education"]:
+        key = (edu["degree"].lower(), edu["institution"].lower())
+        if key not in edu_keys:
+            edu_keys.add(key)
+            unique_edu.append(edu)
+    parsed["education"] = unique_edu
+
+    # 7. Parse Work History
+    role_keywords = ["engineer", "developer", "designer", "manager", "analyst", "consultant", "architect", "lead", "specialist", "intern", "programmer"]
+    
+    work_history = []
+    
+    for i, line in enumerate(non_empty_lines):
+        line_lower = line.lower()
+        has_role = any(rk in line_lower for rk in role_keywords)
+        if not has_role:
+            continue
+            
+        if any(k in line_lower for k in ["summary", "objective", "profile", "skills:", "education", "university", "college", "school"]):
+            continue
+            
+        if any(k in line_lower for k in ["i am", "passionate", "seeking", "experienced", "with building", "specializing in"]):
+            continue
+            
+        if len(line) > 90:
+            continue
+
+        cleaned_line = line.lstrip('-*• \t')
+        
+        date_match = re.search(r'\(?\b(19\d{2}|20\d{2})\s*[-–—]\s*(present|\b19\d{2}\b|\b20\d{2}\b)\)?\b', cleaned_line, re.IGNORECASE)
+        duration = "2 years"
+        if date_match:
+            duration = date_match.group(0).strip('() ')
+            cleaned_line = cleaned_line.replace(date_match.group(0), "").strip()
+        
+        cleaned_line = re.sub(r'\(\s*\)', '', cleaned_line).strip("() ")
+        
+        role = "Software Engineer"
+        company = "Company"
+        
+        if " at " in cleaned_line:
+            parts = cleaned_line.split(" at ")
+            role = parts[0].strip()
+            company = parts[1].strip()
+        elif " @ " in cleaned_line:
+            parts = cleaned_line.split(" @ ")
+            role = parts[0].strip()
+            company = parts[1].strip()
+        elif "@" in cleaned_line:
+            parts = cleaned_line.split("@")
+            role = parts[0].strip()
+            company = parts[1].strip()
+        elif " - " in cleaned_line:
+            parts = cleaned_line.split(" - ")
+            role = parts[0].strip()
+            company = parts[1].strip()
+        elif " – " in cleaned_line:
+            parts = cleaned_line.split(" – ")
+            role = parts[0].strip()
+            company = parts[1].strip()
+        elif "," in cleaned_line:
+            parts = cleaned_line.split(",")
+            role = parts[0].strip()
+            company = parts[1].strip()
+        else:
+            for rk in role_keywords:
+                if rk in line_lower:
+                    role = line.strip()
+                    break
+        
+        description_lines = []
+        for j in range(i+1, min(i+6, len(non_empty_lines))):
+            next_line = non_empty_lines[j]
+            next_line_lower = next_line.lower()
+            if any(rk in next_line_lower for rk in role_keywords) and re.search(r'\b(19\d{2}|20\d{2})\b', next_line_lower):
+                break
+            if any(h in next_line_lower for h in ["education", "skills:", "summary", "objective"]):
+                break
+            if next_line.startswith('-') or next_line.startswith('*') or next_line.startswith('•') or len(next_line) > 20:
+                description_lines.append(next_line.lstrip('-*• ').strip())
+        
+        description = " ".join(description_lines) if description_lines else "Responsible for software development and collaboration."
+        
+        work_history.append({
+            "company": company,
+            "role": role,
+            "duration": duration,
+            "description": description
+        })
+        
+    parsed["work_history"] = work_history
+    
+    if parsed["experience_years"] == 0 and work_history:
+        total_yrs = 0
+        for job in work_history:
+            dur = job["duration"].lower()
+            years_match = re.findall(r'\b(20\d{2}|19\d{2})\b', dur)
+            if len(years_match) == 2:
+                total_yrs += abs(int(years_match[1]) - int(years_match[0]))
+            elif len(years_match) == 1 and "present" in dur:
+                from datetime import datetime
+                total_yrs += abs(datetime.now().year - int(years_match[0]))
+        if total_yrs > 0:
+            parsed["experience_years"] = total_yrs
 
     return parsed
 
@@ -153,14 +331,30 @@ def parse_resume_hf(text):
 
     # Default to Llama-3-8B-Instruct if no model is specified
     model_id = os.environ.get('HF_MODEL_ID', 'meta-llama/Meta-Llama-3-8B-Instruct')
-    url = f"https://api-inference.huggingface.co/models/{model_id}"
+    
+    endpoints = [
+        {
+            "url": f"https://api-inference.huggingface.co/models/{model_id}",
+            "type": "standard"
+        },
+        {
+            "url": f"https://router.huggingface.co/models/{model_id}",
+            "type": "standard"
+        },
+        {
+            "url": "https://router.huggingface.co/v1/chat/completions",
+            "type": "chat"
+        },
+        {
+            "url": "https://api-inference.huggingface.co/v1/chat/completions",
+            "type": "chat"
+        }
+    ]
+    
     headers = {"Authorization": f"Bearer {api_key}"}
     
-    prompt = (
-        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-        "You are an expert resume parsing engine. Parse the provided resume text into a single JSON object. "
-        "Return ONLY valid JSON. Do not include markdown formatting, markdown code blocks (e.g. ```json), or any explanation text.<|eot_id|>"
-        "<|start_header_id|>user<|end_header_id|>\n\n"
+    prompt_system = "You are an expert resume parsing engine. Parse the provided resume text into a single JSON object. Return ONLY valid JSON. Do not include markdown formatting, markdown code blocks, or any explanation text."
+    prompt_user = (
         "Format the parsed data exactly as follows:\n"
         "{\n"
         '  "name": "Candidate Name",\n'
@@ -171,39 +365,68 @@ def parse_resume_hf(text):
         '  "education": [{"degree": "Degree Name", "institution": "Institution Name", "year": 2020}],\n'
         '  "work_history": [{"company": "Company Name", "role": "Role Name", "duration": "Duration", "description": "Description"}]\n'
         "}\n\n"
-        f"Resume Text:\n{text}<|eot_id|>"
+        f"Resume Text:\n{text}"
+    )
+
+    prompt_legacy = (
+        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+        f"{prompt_system}<|eot_id|>"
+        "<|start_header_id|>user<|end_header_id|>\n\n"
+        f"{prompt_user}<|eot_id|>"
         "<|start_header_id|>assistant<|end_header_id|>\n\n"
     )
     
-    try:
-        response = requests.post(url, json={
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 1000,
-                "return_full_text": False
-            }
-        }, headers=headers, timeout=15)
+    for endpoint in endpoints:
+        url = endpoint["url"]
+        etype = endpoint["type"]
         
-        if response.status_code == 200:
-            res_json = response.json()
-            if isinstance(res_json, list) and len(res_json) > 0:
-                content = res_json[0].get('generated_text', '').strip()
-            elif isinstance(res_json, dict):
-                content = res_json.get('generated_text', '').strip()
+        try:
+            logger.info(f"Attempting resume parsing via Hugging Face endpoint: {url} ({etype})")
+            if etype == "standard":
+                response = requests.post(url, json={
+                    "inputs": prompt_legacy,
+                    "parameters": {
+                        "max_new_tokens": 1000,
+                        "return_full_text": False
+                    }
+                }, headers=headers, timeout=8)
             else:
-                return None
+                response = requests.post(url, json={
+                    "model": model_id,
+                    "messages": [
+                        {"role": "system", "content": prompt_system},
+                        {"role": "user", "content": prompt_user}
+                    ],
+                    "max_tokens": 1000,
+                    "temperature": 0.1
+                }, headers=headers, timeout=8)
                 
-            # Extract JSON from output in case the model wraps it in markdown or other text
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
-            if json_match:
-                content = json_match.group(0)
+            if response.status_code == 200:
+                res_json = response.json()
+                if etype == "standard":
+                    if isinstance(res_json, list) and len(res_json) > 0:
+                        content = res_json[0].get('generated_text', '').strip()
+                    elif isinstance(res_json, dict):
+                        content = res_json.get('generated_text', '').strip()
+                    else:
+                        continue
+                else:
+                    content = res_json['choices'][0]['message']['content'].strip()
                 
-            import json
-            return json.loads(content)
-        else:
-            logger.warning(f"Hugging Face API returned status {response.status_code}: {response.text}")
-    except Exception as e:
-        logger.error(f"Error parsing resume via Hugging Face Inference API: {e}")
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    content = json_match.group(0)
+                    
+                import json
+                parsed_res = json.loads(content)
+                logger.info(f"Successfully parsed resume via HF endpoint: {url}")
+                return parsed_res
+            else:
+                logger.warning(f"Hugging Face endpoint {url} returned status {response.status_code}: {response.text}")
+        except Exception as e:
+            logger.warning(f"Failed to parse via Hugging Face endpoint {url}: {e}")
+            
+    logger.error("All Hugging Face API endpoints failed to parse the resume.")
     return None
 
 def parse_resume(file_path):
