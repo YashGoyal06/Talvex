@@ -103,7 +103,12 @@ if db_url.startswith('postgres://') or db_url.startswith('postgresql://'):
         }
     }
 else:
-    # SQLite fallback
+    # SQLite fallback with a highly visible terminal warning
+    print("\n" + "="*80)
+    print(" ⚠️  WARNING: DATABASE_URL not set or not pointing to a Postgres database!")
+    print(" ⚠️  Falling back to local SQLite database (db.sqlite3).")
+    print(" ⚠️  Data will NOT sync with Supabase. Recruiter auth changes will be local-only.")
+    print("="*80 + "\n")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
