@@ -57,6 +57,7 @@ const Sidebar = ({ role }) => {
           ) : role === 'candidate' ? (
             <>
               <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/candidate/dashboard" exact isAdminTheme={isAdminTheme} />
+              <NavItem icon={<Briefcase size={18} />} label="Jobs" to="/candidate/jobs" isAdminTheme={isAdminTheme} />
               <NavItem icon={<Video size={18} />} label="Interviews" to="/candidate/interviews" isAdminTheme={isAdminTheme} />
             </>
           ) : (

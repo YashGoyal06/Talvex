@@ -16,6 +16,7 @@ import AdminJobs from './pages/admin/AdminJobs';
 import LiveInterviewRoom from './pages/candidate/LiveInterviewRoom';
 import CandidateDashboard from './pages/candidate/CandidateDashboard';
 import CandidateInterviews from './pages/candidate/CandidateInterviews';
+import CandidateJobs from './pages/candidate/CandidateJobs';
 import AssessmentRoom from './pages/candidate/AssessmentRoom';
 import FirstProfileSetup from './pages/candidate/FirstProfileSetup';
 import SupportView from './pages/shared/SupportView';
@@ -63,6 +64,7 @@ function App() {
         {/* Candidate Routes */}
         <Route path="/candidate" element={<CandidateLayout />}>
           <Route path="dashboard" element={<CandidateDashboard />} />
+          <Route path="jobs" element={<CandidateJobs />} />
           <Route path="interviews" element={<CandidateInterviews />} />
           <Route path="settings" element={<SettingsView />} />
         </Route>

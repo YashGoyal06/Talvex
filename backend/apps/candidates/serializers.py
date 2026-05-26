@@ -90,7 +90,7 @@ class SubmitApplicationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     email = serializers.EmailField()
     phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    resume = serializers.FileField()
+    resume = serializers.FileField(required=False, allow_null=True)
     cover_letter = serializers.CharField(required=False, allow_blank=True)
 
     def validate_job_id(self, value):
@@ -107,7 +107,7 @@ class SubmitApplicationSerializer(serializers.Serializer):
         name = validated_data['name']
         phone = validated_data.get('phone', '')
         cover_letter = validated_data.get('cover_letter', '')
-        resume_file = validated_data['resume']
+        resume_file = validated_data.get('resume')
 
         # Get or create candidate
         name_parts = name.strip().split(' ', 1)
@@ -124,9 +124,27 @@ class SubmitApplicationSerializer(serializers.Serializer):
         )
 
         # Upload resume to Supabase Storage
-        resume_url = upload_file_to_supabase(resume_file, bucket_name="resumes")
-        if not resume_url:
-            resume_url = ''  # Fallback: store empty if upload fails
+        resume_url = ''
+        if resume_file:
+            resume_url = upload_file_to_supabase(resume_file, bucket_name="resumes")
+            if not resume_url:
+                resume_url = ''  # Fallback: store empty if upload fails
+        else:
+            # Re-use existing resume
+            # Look in parsed_resume documents first
+            if isinstance(candidate.parsed_resume, dict) and 'documents' in candidate.parsed_resume:
+                docs = candidate.parsed_resume['documents']
+                if isinstance(docs, list) and len(docs) > 0:
+                    resume_url = docs[0].get('url', '')
+            
+            # If not found, look in previous applications
+            if not resume_url:
+                prev_app = Application.objects.filter(candidate=candidate).exclude(resume_file='').order_by('-created_at').first()
+                if prev_app:
+                    resume_url = prev_app.resume_file
+                    
+            if not resume_url:
+                raise serializers.ValidationError({"resume": "No resume file was provided, and no existing resume was found on file."})
 
         # Create application with the Supabase URL
         application = Application.objects.create(
@@ -140,37 +158,48 @@ class SubmitApplicationSerializer(serializers.Serializer):
         )
 
         # Parse resume using a temp file (since file is in-memory)
-        try:
-            ext = os.path.splitext(resume_file.name)[1]
-            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-                for chunk in resume_file.chunks():
-                    tmp.write(chunk)
-                tmp_path = tmp.name
-
-            parsed_data, confidence = parse_resume(tmp_path)
-
-            # Clean up temp file
-            os.unlink(tmp_path)
-
-            # Update candidate details with parsed info
-            candidate.parsed_resume = parsed_data
-            
-            # Calculate job-specific ATS match score
-            from .parser import calculate_ats_score
-            ats_score = calculate_ats_score(parsed_data, job)
-            candidate.confidence_score = ats_score
-            
-            if parsed_data.get('phone') and not candidate.phone:
-                candidate.phone = parsed_data['phone']
-            candidate.save()
-        except Exception as e:
-            # Keep application active even if parser errors out
-            logger.error(f"Error executing resume parser during application submit: {e}")
-            # Clean up temp file on error too
+        if resume_file:
             try:
-                if 'tmp_path' in locals():
-                    os.unlink(tmp_path)
-            except OSError:
-                pass
+                ext = os.path.splitext(resume_file.name)[1]
+                with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                    for chunk in resume_file.chunks():
+                        tmp.write(chunk)
+                    tmp_path = tmp.name
+
+                parsed_data, confidence = parse_resume(tmp_path)
+
+                # Clean up temp file
+                os.unlink(tmp_path)
+
+                # Update candidate details with parsed info
+                candidate.parsed_resume = parsed_data
+                
+                # Calculate job-specific ATS match score
+                from .parser import calculate_ats_score
+                ats_score = calculate_ats_score(parsed_data, job)
+                candidate.confidence_score = ats_score
+                
+                if parsed_data.get('phone') and not candidate.phone:
+                    candidate.phone = parsed_data['phone']
+                candidate.save()
+            except Exception as e:
+                # Keep application active even if parser errors out
+                logger.error(f"Error executing resume parser during application submit: {e}")
+                # Clean up temp file on error too
+                try:
+                    if 'tmp_path' in locals():
+                        os.unlink(tmp_path)
+                except OSError:
+                    pass
+        else:
+            # Re-calculate ATS score using candidate's existing parsed_resume and the new job
+            if isinstance(candidate.parsed_resume, dict) and candidate.parsed_resume:
+                try:
+                    from .parser import calculate_ats_score
+                    ats_score = calculate_ats_score(candidate.parsed_resume, job)
+                    candidate.confidence_score = ats_score
+                    candidate.save()
+                except Exception as e:
+                    logger.error(f"Error calculating ATS score for existing resume: {e}")
 
         return application
