@@ -24,7 +24,7 @@ const Sidebar = ({ role }) => {
   };
 
   return (
-    <div className={`w-72 h-[calc(100vh-3rem)] flex flex-col fixed left-6 top-6 rounded-[2.2rem] z-40 p-6 justify-between select-none border transition-colors ${
+    <div className={`w-72 h-[calc(100vh-3rem)] flex flex-col fixed left-6 top-6 rounded-[2.2rem] z-40 p-6 justify-between select-none border transition-colors duration-300 ${
       isAdminTheme 
         ? 'bg-[#0C0D12]/90 border-neutral-800/80 shadow-[0_15px_50px_-15px_rgba(0,0,0,0.4)] text-white' 
         : 'bg-white/80 backdrop-blur-xl border-white/40 shadow-[0_15px_50px_-15px_rgba(0,0,0,0.06)] text-neutral-800'
@@ -142,8 +142,10 @@ const NavItem = ({ icon, label, to, exact, isAdminTheme }) => {
 
 // Global Layout Wrapper displaying premium background canvas
 const DashboardLayoutWrapper = ({ role }) => {
+  const location = useLocation();
   const [time, setTime] = useState(new Date());
   const isAdminTheme = role === 'admin';
+  const isSettingsPage = location.pathname.endsWith('/settings');
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -153,7 +155,7 @@ const DashboardLayoutWrapper = ({ role }) => {
   const formattedTime = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className={`min-h-screen relative overflow-x-hidden transition-colors ${
+    <div className={`min-h-screen relative overflow-x-hidden transition-colors duration-300 ${
       isAdminTheme ? 'bg-[#08090C] text-neutral-200' : 'bg-slate-50/50 text-neutral-800'
     }`}>
       
@@ -187,7 +189,7 @@ const DashboardLayoutWrapper = ({ role }) => {
       <div className="ml-[20rem] p-8 relative z-10 min-h-screen flex flex-col">
         
         {/* Dynamic Outlet Page Wrapper */}
-        <main className={`flex-1 ${isAdminTheme ? 'text-neutral-200' : 'dashboard-content'}`}>
+        <main className={`flex-1 ${isAdminTheme ? 'text-neutral-200' : (isSettingsPage ? '' : 'dashboard-content')}`}>
           <Outlet />
         </main>
       </div>

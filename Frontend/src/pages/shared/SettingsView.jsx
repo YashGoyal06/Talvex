@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { User as UserIcon, Bell, Shield, Blocks, LogOut, Upload, Check, Sparkles } from 'lucide-react';
+import { User as UserIcon, LogOut, Upload, Sparkles, Mail, Award, ShieldCheck, Camera } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../api/api';
 
 export default function SettingsView() {
-  const [activeTab, setActiveTab] = useState('profile');
   const [toast, setToast] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   const isCandidate = location.pathname.includes('/candidate');
+  const userRole = localStorage.getItem('userRole') || (isCandidate ? 'candidate' : 'recruiter');
+  const isDark = userRole === 'admin';
   
   const savedName = localStorage.getItem('userName') || (isCandidate ? 'Alex Demo' : 'Sarah Jenkins');
   const savedEmail = localStorage.getItem('userEmail') || (isCandidate ? 'newuser@demo.com' : 'sarah.jenkins@company.com');
@@ -25,7 +26,7 @@ export default function SettingsView() {
   const [title, setTitle] = useState(savedTitle);
   const [passingAtsScore, setPassingAtsScore] = useState(savedAts);
 
-  const avatarUrl = localStorage.getItem('userPhoto') || (isCandidate ? 'https://i.pravatar.cc/150?u=alex' : 'https://i.pravatar.cc/150?u=sarah');
+  const avatarUrl = localStorage.getItem('userPhoto') || '';
 
   const showToast = (msg) => {
     setToast(msg);
@@ -38,29 +39,28 @@ export default function SettingsView() {
     localStorage.setItem('userEmail', email);
     localStorage.setItem('userTitle', title);
     
-    const role = localStorage.getItem('userRole');
     try {
-      if (role === 'recruiter') {
+      if (userRole === 'recruiter') {
         localStorage.setItem('passingAtsScore', passingAtsScore);
         await api.auth.updateProfile({
           full_name: `${firstName} ${lastName}`.trim(),
           job_title: title,
           passing_ats_score: parseInt(passingAtsScore)
         });
-      } else if (role === 'admin') {
+      } else if (userRole === 'admin') {
         await api.auth.updateProfile({
           full_name: `${firstName} ${lastName}`.trim()
         });
-      } else if (role === 'candidate') {
+      } else if (userRole === 'candidate') {
         await api.candidates.updateProfile(email, {
           first_name: firstName,
           last_name: lastName
         });
       }
-      showToast('Settings saved successfully!');
+      showToast('Profile saved successfully!');
     } catch (err) {
       console.error(err);
-      showToast('Failed to save settings.');
+      showToast('Failed to save profile.');
     }
   };
 
@@ -75,12 +75,11 @@ export default function SettingsView() {
         const res = await api.auth.uploadFile(file, 'avatars');
         if (res.url) {
           localStorage.setItem('userPhoto', res.url);
-          const role = localStorage.getItem('userRole');
-          if (role === 'recruiter' || role === 'admin') {
+          if (userRole === 'recruiter' || userRole === 'admin') {
             await api.auth.updateProfile({ photo_url: res.url });
-          } else if (role === 'candidate') {
-            const email = localStorage.getItem('userEmail');
-            await api.candidates.updateProfile(email, { photo_url: res.url });
+          } else if (userRole === 'candidate') {
+            const candidateEmail = localStorage.getItem('userEmail');
+            await api.candidates.updateProfile(candidateEmail, { photo_url: res.url });
           }
           showToast('Avatar updated successfully!');
           window.location.reload();
@@ -99,258 +98,255 @@ export default function SettingsView() {
   };
 
   return (
-    <div className="space-y-8 select-none relative">
+    <div className="space-y-8 select-none relative max-w-6xl mx-auto py-4">
       
+      {/* Decorative ambient glowing orbs (Admin only) */}
+      {isDark && (
+        <>
+          <div className="absolute -top-12 -left-12 w-80 h-80 bg-orange-500/[0.07] rounded-full blur-[100px] pointer-events-none z-0" />
+          <div className="absolute -bottom-12 -right-12 w-96 h-96 bg-orange-600/[0.05] rounded-full blur-[120px] pointer-events-none z-0" />
+        </>
+      )}
+
       {/* Toast alert */}
       {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-neutral-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2 animate-bounce border border-neutral-800">
-          <Sparkles size={14} className="text-orange-500" />
+        <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-2xl border border-orange-500/30 text-xs font-bold flex items-center gap-3 animate-fade-in transition-all ${
+          isDark 
+            ? 'bg-[#0c0d12]/95 text-white shadow-[0_10px_40px_rgba(0,0,0,0.5)]' 
+            : 'bg-white/95 text-neutral-900 shadow-[0_10px_40px_rgba(0,0,0,0.08)]'
+        }`}>
+          <div className="w-6 h-6 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400 shrink-0">
+            <Sparkles size={14} className="animate-pulse" />
+          </div>
           <span>{toast}</span>
         </div>
       )}
 
-      {/* Header section matching mockup standards */}
-      <div className="bg-white/70 backdrop-blur-xl border border-white/40 p-8 rounded-[2.2rem] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h2 className="text-3xl font-extrabold text-neutral-950 tracking-tight">Settings</h2>
-          <p className="text-xs text-neutral-400 mt-2 font-bold uppercase tracking-wider">
-            Manage your account preferences, configure notification rules, and connect integrations.
-          </p>
+      {/* Header section — dynamic white/dark theme card */}
+      <div className={`p-10 rounded-[2.2rem] shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 z-10 transition-all duration-300 ${
+        isDark 
+          ? 'bg-gradient-to-r from-[#0c0d12]/95 to-[#08090c]/98 border border-white/[0.08]' 
+          : 'bg-white/85 backdrop-blur-xl border border-white/50'
+      }`}>
+        <div className="flex gap-5">
+          <div className="w-1.5 h-14 bg-gradient-to-b from-orange-500 to-amber-500 rounded-full shrink-0 animate-pulse-slow" />
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className={`text-4xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                My Profile
+              </h2>
+            </div>
+            <p className={`text-sm mt-2 font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>
+              Manage your personal information, role details, and global preferences.
+            </p>
+          </div>
         </div>
-        
-        <button 
-          onClick={handleLogout} 
-          className="px-4 py-2.5 border border-red-200 hover:border-red-600 bg-white text-red-500 hover:bg-red-50 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm shrink-0 self-start md:self-auto cursor-pointer"
-        >
-          <LogOut size={14} /> Log out
-        </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8 items-start">
+      {/* Content Area — dynamic white/dark theme card */}
+      <div className={`p-10 md:p-12 rounded-[2.2rem] shadow-xl z-10 relative overflow-hidden transition-all duration-300 ${
+        isDark 
+          ? 'bg-gradient-to-br from-[#0c0d12]/95 via-[#08090c]/98 to-[#040507]/95 border border-white/[0.08]' 
+          : 'bg-white/85 backdrop-blur-xl border border-white/50'
+      }`}>
         
-        {/* Sidebar tabs rounded pills styled precisely to match visual standard */}
-        <div className="w-full md:w-64 shrink-0 space-y-1.5">
-          {[
-            { id: 'profile', icon: <UserIcon size={16} />, label: 'My Profile' },
-            { id: 'notifications', icon: <Bell size={16} />, label: 'Notifications' },
-            { id: 'security', icon: <Shield size={16} />, label: 'Security' },
-            { id: 'integrations', icon: <Blocks size={16} />, label: 'Integrations' },
-          ].map(tab => {
-            const isSelected = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-5 py-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer ${
-                  isSelected
-                    ? 'border-2 border-orange-500 text-orange-500 bg-transparent shadow-md'
-                    : 'text-neutral-500 hover:text-neutral-950 hover:bg-white/50 border border-transparent'
-                }`}
-              >
-                <span className={isSelected ? 'text-orange-500' : 'text-neutral-400'}>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Content Area styled as premium frosted card */}
-        <div className="flex-1 bg-white/70 backdrop-blur-xl border border-white/50 p-8 rounded-[2.2rem] shadow-sm min-h-[500px]">
-          
-          {/* Profile Tab */}
-          {activeTab === 'profile' && (
-            <form onSubmit={handleSave} className="space-y-6 animate-fade-in">
-              <div>
-                <h3 className="text-base font-extrabold text-neutral-950">Public Profile</h3>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">This information will be displayed to candidates and your team.</p>
-                
-                {/* Avatar change */}
-                <div className="flex items-center gap-6 mt-6 mb-6">
+        {isDark && <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/[0.02] rounded-full blur-3xl pointer-events-none" />}
+        
+        <form onSubmit={handleSave} className="space-y-10 relative z-10">
+          <div>
+            <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-neutral-900'}`}>Public Profile</h3>
+            <p className={`text-xs font-bold uppercase tracking-wider mt-1.5 ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+              This information will be displayed to candidates and your team.
+            </p>
+            
+            {/* Avatar change */}
+            <div className="flex items-center gap-8 mt-10 mb-10">
+              <div className="relative group cursor-pointer shrink-0" onClick={handleAvatarChange}>
+                <div className={`relative w-28 h-28 rounded-[2rem] overflow-hidden flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105 ${
+                  isDark ? 'bg-neutral-900 border-2 border-neutral-800 text-neutral-400' : 'bg-neutral-100 border-2 border-neutral-200 text-neutral-500'
+                }`}>
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" className="w-16 h-16 rounded-[1.5rem] object-cover border-2 border-white shadow-md" />
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-16 h-16 rounded-[1.5rem] bg-neutral-250 border border-neutral-300 flex items-center justify-center text-neutral-500">
-                      <UserIcon size={24} />
-                    </div>
+                    <UserIcon size={40} />
                   )}
-                  <div>
-                    <button 
-                      type="button" 
-                      onClick={handleAvatarChange}
-                      className="px-3.5 py-1.5 border border-neutral-200 hover:border-neutral-950 bg-white text-neutral-600 hover:text-neutral-950 rounded-full text-[10px] font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                    >
-                      <Upload size={12} className="text-orange-500" /> Change Avatar
-                    </button>
-                    <p className="text-[9px] text-neutral-400 font-semibold mt-1">JPG, GIF or PNG. 1MB max.</p>
+                  {/* Blur Hover Overlay */}
+                  <div className="absolute inset-0 bg-neutral-950/70 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-300 gap-1.5">
+                    <Camera size={20} className="text-orange-400" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider">Change</span>
                   </div>
                 </div>
+              </div>
+              
+              <div>
+                <h4 className={`text-base font-bold ${isDark ? 'text-white' : 'text-neutral-850'}`}>Profile Picture</h4>
+                <p className="text-xs text-neutral-400 font-semibold mt-1.5">Recommended: Square PNG or JPG. Max 1MB.</p>
+                <button 
+                  type="button" 
+                  onClick={handleAvatarChange}
+                  className={`mt-4 px-5 py-2.5 border rounded-full text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-all duration-300 cursor-pointer ${
+                    isDark 
+                      ? 'border-white/10 hover:border-orange-500/40 bg-white/[0.02] hover:bg-orange-500/5 text-neutral-300 hover:text-orange-400' 
+                      : 'border-neutral-200 hover:border-orange-500/40 bg-neutral-50 hover:bg-orange-50 text-neutral-600 hover:text-orange-600'
+                  }`}
+                >
+                  <Upload size={14} className="text-orange-500" /> Change Photo
+                </button>
+              </div>
+            </div>
 
-                {/* Input grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">First Name</label>
+            {/* Input grid */}
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                {/* First Name */}
+                <div className="relative">
+                  <label className={`block text-xs font-bold uppercase tracking-widest mb-3 ml-1 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                    First Name
+                  </label>
+                  <div className="relative">
+                    <div className={`absolute inset-y-0 left-4 flex items-center pointer-events-none ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                      <UserIcon size={16} />
+                    </div>
                     <input 
                       type="text" 
                       value={firstName} 
                       onChange={e => setFirstName(e.target.value)} 
-                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold shadow-sm" 
+                      className={`w-full rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 text-sm font-bold transition-all duration-350 shadow-xs ${
+                        isDark 
+                          ? 'bg-white/[0.02] border border-white/10 text-white focus:bg-neutral-900/60' 
+                          : 'bg-neutral-50/50 border border-neutral-200 text-neutral-900 focus:bg-white'
+                      }`} 
+                      placeholder="First Name"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Last Name</label>
+                </div>
+                
+                {/* Last Name */}
+                <div className="relative">
+                  <label className={`block text-xs font-bold uppercase tracking-widest mb-3 ml-1 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                    Last Name
+                  </label>
+                  <div className="relative">
+                    <div className={`absolute inset-y-0 left-4 flex items-center pointer-events-none ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                      <UserIcon size={16} />
+                    </div>
                     <input 
                       type="text" 
                       value={lastName} 
                       onChange={e => setLastName(e.target.value)} 
-                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold shadow-sm" 
+                      className={`w-full rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 text-sm font-bold transition-all duration-350 shadow-xs ${
+                        isDark 
+                          ? 'bg-white/[0.02] border border-white/10 text-white focus:bg-neutral-900/60' 
+                          : 'bg-neutral-50/50 border border-neutral-200 text-neutral-900 focus:bg-white'
+                      }`} 
+                      placeholder="Last Name"
                     />
                   </div>
                 </div>
-                
-                <div className="mt-4">
-                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Email Address</label>
+
+              </div>
+              
+              {/* Email Address */}
+              <div className="relative">
+                <label className={`block text-xs font-bold uppercase tracking-widest mb-3 ml-1 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className={`absolute inset-y-0 left-4 flex items-center pointer-events-none ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                    <Mail size={16} />
+                  </div>
                   <input 
                     type="email" 
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
-                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold shadow-sm" 
+                    className={`w-full rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 text-sm font-bold transition-all duration-350 shadow-xs ${
+                      isDark 
+                        ? 'bg-white/[0.02] border border-white/10 text-white focus:bg-neutral-900/60' 
+                        : 'bg-neutral-50/50 border border-neutral-200 text-neutral-900 focus:bg-white'
+                    }`} 
+                    placeholder="Email Address"
                   />
                 </div>
+              </div>
 
-                <div className="mt-4">
-                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Role / Position Title</label>
-                  <input 
-                    type="text" 
-                    value={title} 
-                    onChange={e => setTitle(e.target.value)} 
-                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold shadow-sm" 
-                  />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-                {!isCandidate && localStorage.getItem('userRole') === 'recruiter' && (
-                  <div className="mt-4">
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Passing ATS Score</label>
+                {/* Role / Position Title */}
+                <div className="relative">
+                  <label className={`block text-xs font-bold uppercase tracking-widest mb-3 ml-1 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                    Role / Position Title
+                  </label>
+                  <div className="relative">
+                    <div className={`absolute inset-y-0 left-4 flex items-center pointer-events-none ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                      <Award size={16} />
+                    </div>
                     <input 
-                      type="number" 
-                      min="1"
-                      max="100"
-                      value={passingAtsScore} 
-                      onChange={e => setPassingAtsScore(e.target.value)} 
-                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold shadow-sm" 
+                      type="text" 
+                      value={title} 
+                      onChange={e => setTitle(e.target.value)} 
+                      className={`w-full rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 text-sm font-bold transition-all duration-350 shadow-xs ${
+                        isDark 
+                          ? 'bg-white/[0.02] border border-white/10 text-white focus:bg-neutral-900/60' 
+                          : 'bg-neutral-50/50 border border-neutral-200 text-neutral-900 focus:bg-white'
+                      }`} 
+                      placeholder="Role Title"
                     />
                   </div>
+                </div>
+
+                {/* Passing ATS Score (Recruiter Only) */}
+                {!isCandidate && userRole === 'recruiter' && (
+                  <div className="relative">
+                    <label className={`block text-xs font-bold uppercase tracking-widest mb-3 ml-1 ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                      Passing ATS Score (%)
+                    </label>
+                    <div className="relative">
+                      <div className={`absolute inset-y-0 left-4 flex items-center pointer-events-none ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                        <ShieldCheck size={16} />
+                      </div>
+                      <input 
+                        type="number" 
+                        min="1"
+                        max="100"
+                        value={passingAtsScore} 
+                        onChange={e => setPassingAtsScore(e.target.value)} 
+                        className={`w-full rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 text-sm font-bold transition-all duration-350 shadow-xs ${
+                          isDark 
+                            ? 'bg-white/[0.02] border border-white/10 text-white focus:bg-neutral-900/60' 
+                            : 'bg-neutral-50/50 border border-neutral-200 text-neutral-900 focus:bg-white'
+                        }`} 
+                        placeholder="Passing Score"
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              <div className="pt-6 border-t border-neutral-100 flex justify-end gap-3 mt-6">
-                <button type="button" className="px-4 py-2 border border-neutral-200 hover:border-neutral-950 rounded-full text-xs font-bold text-neutral-500 hover:text-neutral-950 transition-colors bg-white">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold transition-all shadow-md">Save Profile Settings</button>
-              </div>
-            </form>
-          )}
-
-          {/* Notifications preferences */}
-          {activeTab === 'notifications' && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <h3 className="text-base font-extrabold text-neutral-950">Notification Rules</h3>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Configure when and how you receive workspace alerts.</p>
-                
-                <div className="space-y-5 mt-6">
-                  {[
-                    { title: 'New Applications', desc: 'Notify when a candidate applies to active requisitions.', default: true },
-                    { title: 'Interview Reminders', desc: 'Alert 15 minutes before scheduled assessments start.', default: true },
-                    { title: 'Scorecard Evaluations', desc: 'Reminder to submit feedback after live coding rounds.', default: true },
-                    { title: 'Offer Letter Updates', desc: 'Notify when a candidate signs or declines an offer.', default: false },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start justify-between bg-white border border-neutral-100/50 p-4 rounded-2xl shadow-sm">
-                      <div>
-                        <div className="text-xs font-bold text-neutral-800">{item.title}</div>
-                        <div className="text-[10px] text-neutral-400 mt-1 font-semibold">{item.desc}</div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked={item.default} />
-                        <div className="w-9 h-5 bg-neutral-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-neutral-100 flex justify-end gap-3 mt-6">
-                <button type="button" className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold transition-all shadow-md" onClick={handleSave}>
-                  Save Alert Settings
-                </button>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Security password settings */}
-          {activeTab === 'security' && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <h3 className="text-base font-extrabold text-neutral-950">Password & Security</h3>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Configure credentials and factor authentication options.</p>
-                
-                <div className="space-y-4 max-w-md mt-6">
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Current Password</label>
-                    <input type="password" placeholder="••••••••" className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold placeholder-neutral-300 shadow-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">New Password</label>
-                    <input type="password" placeholder="New password" className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold placeholder-neutral-300 shadow-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Confirm New Password</label>
-                    <input type="password" placeholder="Confirm password" className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-950 focus:bg-white text-xs font-semibold placeholder-neutral-300 shadow-sm" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-neutral-100 flex justify-between items-center mt-6">
-                <button type="button" className="text-xs text-orange-600 hover:text-orange-700 font-bold">Configure Two-Factor Auth (2FA)</button>
-                <button type="button" className="px-5 py-2 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold transition-all shadow-md" onClick={handleSave}>
-                  Update Password
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Connected apps integrations */}
-          {activeTab === 'integrations' && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <h3 className="text-base font-extrabold text-neutral-950">Connected Integrations</h3>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Connect Talvex with your existing tech stack tools.</p>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
-                  {[
-                    { name: 'Google Calendar', desc: 'Sync interview schedules seamlessly.', connected: true, color: 'text-blue-600' },
-                    { name: 'Slack Alerts', desc: 'Get pipeline updates in channels.', connected: false, color: 'text-purple-600' },
-                    { name: 'Zoom Meetings', desc: 'Fallback live video assessments.', connected: true, color: 'text-sky-600' },
-                    { name: 'LinkedIn Recruiter', desc: 'Import candidate resumes instantly.', connected: false, color: 'text-blue-800' },
-                  ].map((app, i) => (
-                    <div key={i} className="bg-white border border-neutral-100 p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
-                      <div>
-                        <div className={`text-xs font-black ${app.color}`}>{app.name}</div>
-                        <div className="text-[10px] text-neutral-400 mt-1 font-bold">{app.desc}</div>
-                      </div>
-                      <button className={`px-4 py-2 border rounded-full text-[10px] font-bold transition-all shadow-sm cursor-pointer ${
-                        app.connected 
-                          ? 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:text-neutral-950 hover:border-neutral-950' 
-                          : 'bg-neutral-950 border-neutral-950 text-white hover:bg-neutral-900'
-                      }`}>
-                        {app.connected ? 'Disconnect' : 'Connect'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
+          {/* Footer buttons with premium transition effects */}
+          <div className={`pt-8 border-t flex justify-end gap-4 mt-10 ${isDark ? 'border-white/10' : 'border-neutral-100'}`}>
+            <button 
+              type="button" 
+              onClick={() => navigate(-1)}
+              className={`px-7 py-3 border rounded-full text-xs font-bold transition-all duration-300 cursor-pointer ${
+                isDark 
+                  ? 'border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white' 
+                  : 'border-neutral-200 hover:border-neutral-300 bg-neutral-100 hover:bg-neutral-200/60 text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold hover:from-orange-600 hover:to-amber-600 shadow-[0_4px_25px_rgba(249,115,22,0.25)] hover:shadow-[0_4px_30px_rgba(249,115,22,0.45)] hover:-translate-y-0.5 active:translate-y-0 rounded-full text-xs transition-all duration-300 cursor-pointer"
+            >
+              Save Profile
+            </button>
+          </div>
+        </form>
 
       </div>
 
