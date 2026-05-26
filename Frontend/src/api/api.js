@@ -88,16 +88,13 @@ export const api = {
         const apps = await request(`/candidates/my-applications/?email=${encodeURIComponent(email)}`, { skipAuth: true });
         if (apps && apps.length > 0 && apps[0].candidate) {
           name = `${apps[0].candidate.first_name} ${apps[0].candidate.last_name}`;
-        } else if (email === 'candidate@demo.com') {
-          name = 'Demo Candidate';
         } else {
           const prefix = email.split('@')[0];
           name = prefix.charAt(0).toUpperCase() + prefix.slice(1);
         }
       } catch (err) {
-        if (email === 'candidate@demo.com') {
-          name = 'Demo Candidate';
-        }
+        const prefix = email.split('@')[0];
+        name = prefix.charAt(0).toUpperCase() + prefix.slice(1);
       }
 
       const header = { alg: "HS256", typ: "JWT" };

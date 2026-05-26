@@ -12,9 +12,9 @@ export default function SettingsView() {
   const userRole = localStorage.getItem('userRole') || (isCandidate ? 'candidate' : 'recruiter');
   const isDark = userRole === 'admin';
   
-  const savedName = localStorage.getItem('userName') || (isCandidate ? 'Alex Demo' : 'Sarah Jenkins');
-  const savedEmail = localStorage.getItem('userEmail') || (isCandidate ? 'newuser@demo.com' : 'sarah.jenkins@company.com');
-  const savedTitle = localStorage.getItem('userTitle') || (isCandidate ? 'Software Engineer' : 'Senior Talent Acquisition');
+  const savedName = localStorage.getItem('userName') || (isCandidate ? 'Candidate User' : 'Recruiter User');
+  const savedEmail = localStorage.getItem('userEmail') || '';
+  const savedTitle = localStorage.getItem('userTitle') || (isCandidate ? 'Software Developer' : 'Recruiter');
   const savedAts = localStorage.getItem('passingAtsScore') ? parseInt(localStorage.getItem('passingAtsScore')) : 70;
 
   const defaultFirstName = savedName.split(' ')[0];

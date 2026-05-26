@@ -14,7 +14,12 @@ const Sidebar = ({ role }) => {
     navigate('/login');
   };
 
-  const storedName = localStorage.getItem('userName') || 'Sarah Jenkins';
+  const defaultNames = {
+    candidate: 'Candidate',
+    recruiter: 'Recruiter',
+    admin: 'Admin'
+  };
+  const storedName = localStorage.getItem('userName') || defaultNames[role] || 'User';
   const userPhoto = localStorage.getItem('userPhoto') || '';
   const shortName = storedName.split(' ')[0];
   const isAdminTheme = role === 'admin';

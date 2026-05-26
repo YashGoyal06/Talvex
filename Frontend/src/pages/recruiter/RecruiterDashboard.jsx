@@ -15,7 +15,7 @@ export default function RecruiterDashboard() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
 
-  const storedName = localStorage.getItem('userName') || 'Sarah Jenkins';
+  const storedName = localStorage.getItem('userName') || 'Recruiter';
   const firstName = storedName.split(' ')[0];
 
   const showToast = (msg) => {

@@ -144,6 +144,38 @@ textarea.font-mono {
   .btn-secondary {
     @apply bg-white hover:bg-neutral-50 text-neutral-700 font-medium py-2 px-4 rounded-lg transition-colors border border-neutral-200 focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2;
   }
+
+  /* Custom Premium Whitish Button styling with Orange Focus Outline */
+  .btn-whitish {
+    background-color: #FFFFFF !important;
+    color: #171717 !important;
+    border: 1px solid #E5E7EB !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  .btn-whitish:hover {
+    background-color: #F9FAFB !important;
+    border-color: #D1D5DB !important;
+    color: #000000 !important;
+  }
+  .btn-whitish:focus,
+  .btn-whitish:focus-visible,
+  .btn-whitish:active,
+  .btn-whitish.active {
+    outline: none !important;
+    border-color: #F97316 !important;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.35) !important;
+    background-color: #FFFFFF !important;
+    color: #171717 !important;
+  }
+
+  /* Global Orange Outline focus state for all buttons & interactive tabs */
+  button:focus,
+  button:focus-visible,
+  button:active {
+    outline: none !important;
+    border-color: #F97316 !important;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.35) !important;
+  }
 }
 
 /*

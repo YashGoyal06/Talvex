@@ -9,7 +9,7 @@ import { api } from '../../api/api';
 
 export default function CandidateDashboard() {
   const storedName = localStorage.getItem('userName') || 'Candidate';
-  const userEmail = localStorage.getItem('userEmail') || 'candidate@demo.com';
+  const userEmail = localStorage.getItem('userEmail') || '';
 
   const [applications, setApplications] = useState([]);
   const [interviews, setInterviews] = useState([]);
@@ -20,12 +20,9 @@ export default function CandidateDashboard() {
 
   // Candidate DB Profile details (resumes, certs, skills)
   const [profile, setProfile] = useState({
-    skills: ['React', 'JavaScript', 'TailwindCSS', 'REST APIs'],
-    documents: [
-      { name: 'Resume_Yash_Goyal.pdf', url: '#', uploadedAt: '2026-05-20' },
-      { name: 'AWS_Certified_Practitioner.pdf', url: '#', uploadedAt: '2026-05-22' }
-    ],
-    certifications: ['AWS Cloud Practitioner', 'React Developer NanoDegree']
+    skills: [],
+    documents: [],
+    certifications: []
   });
 
   // Modal apply states
@@ -59,12 +56,9 @@ export default function CandidateDashboard() {
       if (appsData && appsData.length > 0 && appsData[0].candidate) {
         const resume = appsData[0].candidate.parsed_resume || {};
         setProfile({
-          skills: resume.skills || ['React', 'JavaScript', 'TailwindCSS', 'REST APIs'],
-          documents: resume.documents || [
-            { name: 'Resume_Yash_Goyal.pdf', url: '#', uploadedAt: '2026-05-20' },
-            { name: 'AWS_Certified_Practitioner.pdf', url: '#', uploadedAt: '2026-05-22' }
-          ],
-          certifications: resume.certifications || ['AWS Cloud Practitioner', 'React Developer NanoDegree']
+          skills: resume.skills || [],
+          documents: resume.documents || [],
+          certifications: resume.certifications || []
         });
       }
     } catch (err) {
@@ -174,10 +168,13 @@ export default function CandidateDashboard() {
       completedScores.push({ id: app.id, role: app.job_title, score: 92 });
     }
   });
-  // Add fallback if list empty
-  if (pendingAssessments.length === 0 && completedScores.length === 0) {
-    completedScores.push({ id: 'fallback-sc', role: 'Full Stack Challenge', score: 85 });
-  }
+
+  const successRate = completedScores.length > 0 
+    ? Math.round(completedScores.reduce((acc, curr) => acc + curr.score, 0) / completedScores.length) + '%' 
+    : '--';
+  const interviewRate = applications.length > 0 
+    ? Math.round((interviews.length / applications.length) * 100) + '%' 
+    : '--';
 
   // 4. Recommended Jobs (mock suggestions based on skills)
   const recommendedJobs = jobs.filter(job => !applications.some(app => app.job === job.id)).slice(0, 3);
@@ -206,7 +203,7 @@ export default function CandidateDashboard() {
     });
   }
   if (activityList.length === 0) {
-    activityList.push({ id: 'act-empty', text: 'Welcome to Talvex! Set up your profile to begin.', date: 'Today' });
+    activityList.push({ id: 'act-empty', text: 'Welcome to Tarvax! Set up your profile to begin.', date: 'Today' });
   }
 
   // 8. Notifications
@@ -302,11 +299,11 @@ export default function CandidateDashboard() {
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div className="bg-white border border-neutral-100 p-3.5 rounded-2xl">
               <span className="text-[10px] font-bold text-neutral-400 block mb-1">Assessment Success</span>
-              <span className="text-xl font-black text-neutral-900">88%</span>
+              <span className="text-xl font-black text-neutral-900">{successRate}</span>
             </div>
             <div className="bg-white border border-neutral-100 p-3.5 rounded-2xl">
               <span className="text-[10px] font-bold text-neutral-400 block mb-1">Interview Rate</span>
-              <span className="text-xl font-black text-neutral-900">45%</span>
+              <span className="text-xl font-black text-neutral-900">{interviewRate}</span>
             </div>
           </div>
         </div>
@@ -371,7 +368,7 @@ export default function CandidateDashboard() {
                   
                   <button 
                     onClick={() => { setSelectedJob(job); setModalError(''); setShowApplyModal(true); }}
-                    className="w-full mt-4 bg-neutral-950 hover:bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider py-2 rounded-xl transition-all cursor-pointer shadow-xs"
+                    className="w-full mt-4 btn-whitish text-[10px] font-black uppercase tracking-wider py-2.5 rounded-xl transition-all cursor-pointer shadow-xs focus:outline-hidden"
                   >
                     Apply Now
                   </button>
@@ -438,7 +435,7 @@ export default function CandidateDashboard() {
               <div className="bg-neutral-950 text-white p-4.5 rounded-2xl space-y-4 border border-neutral-900">
                 <div>
                   <h4 className="text-xs font-black text-neutral-100 leading-none">{nextInterview.job?.title || 'Software Requisition'}</h4>
-                  <p className="text-[10px] text-neutral-400 font-semibold mt-1.5">{nextInterview.company?.name || 'Talvex Enterprise'}</p>
+                  <p className="text-[10px] text-neutral-400 font-semibold mt-1.5">{nextInterview.company?.name || 'Tarvax Enterprise'}</p>
                   <p className="text-[9px] text-neutral-400 mt-1 font-mono">{new Date(nextInterview.scheduled_at).toLocaleString()}</p>
                 </div>
                 <Link 
@@ -495,24 +492,27 @@ export default function CandidateDashboard() {
             </div>
 
             <div className="space-y-4 font-semibold">
-              <div className="flex gap-3">
-                <div className="text-center w-8 text-[10px] font-mono text-neutral-400">
-                  <span className="block font-black text-neutral-900">26</span> May
-                </div>
-                <div className="flex-1 bg-white border border-neutral-100 p-3 rounded-2xl shadow-xs">
-                  <h5 className="text-xs font-black text-neutral-900 leading-none">Code sync session</h5>
-                  <p className="text-[9px] text-neutral-400 mt-1 font-mono">10:00 am - 11:30 am</p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <div className="text-center w-8 text-[10px] font-mono text-neutral-400">
-                  <span className="block font-black text-neutral-900">28</span> May
-                </div>
-                <div className="flex-1 bg-white border border-neutral-100 p-3 rounded-2xl shadow-xs">
-                  <h5 className="text-xs font-black text-neutral-900 leading-none">Recruiter review call</h5>
-                  <p className="text-[9px] text-neutral-400 mt-1 font-mono">03:30 pm</p>
-                </div>
-              </div>
+              {upcomingInterviews.length > 0 ? (
+                upcomingInterviews.map((int) => {
+                  const d = new Date(int.scheduled_at);
+                  const day = d.getDate();
+                  const month = d.toLocaleString('default', { month: 'short' });
+                  const timeRange = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <div key={int.id} className="flex gap-3">
+                      <div className="text-center w-8 text-[10px] font-mono text-neutral-400">
+                        <span className="block font-black text-neutral-900">{day}</span> {month}
+                      </div>
+                      <div className="flex-1 bg-white border border-neutral-100 p-3 rounded-2xl shadow-xs">
+                        <h5 className="text-xs font-black text-neutral-900 leading-none">{int.job?.title || 'Collaborative Coding'}</h5>
+                        <p className="text-[9px] text-neutral-400 mt-1 font-mono">{timeRange}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-neutral-400 text-center text-xs py-6 italic font-medium">No upcoming interviews or events scheduled.</div>
+              )}
             </div>
           </div>
 
@@ -648,7 +648,7 @@ export default function CandidateDashboard() {
                 <button type="button" onClick={() => setShowApplyModal(false)} className="text-xs font-bold text-neutral-400 hover:text-neutral-700 px-4 py-2" disabled={modalSubmitting}>
                   Cancel
                 </button>
-                <button type="submit" className="bg-neutral-950 hover:bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider px-5 py-2.5 rounded-full transition-all cursor-pointer shadow-sm flex items-center gap-1.5" disabled={modalSubmitting}>
+                <button type="submit" className="btn-whitish text-[10px] font-black uppercase tracking-wider px-5 py-2.5 rounded-full transition-all cursor-pointer shadow-sm flex items-center gap-1.5 focus:outline-hidden" disabled={modalSubmitting}>
                   Apply
                 </button>
               </div>

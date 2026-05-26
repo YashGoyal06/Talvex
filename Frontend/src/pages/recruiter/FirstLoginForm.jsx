@@ -24,6 +24,7 @@ export default function FirstLoginForm() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
 
   // Protect page: if email or token are missing, redirect to login
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function FirstLoginForm() {
         full_name: formData.fullName.trim(),
         job_title: formData.jobTitle.trim(),
         department: formData.department,
-        phone_number: formData.phone.trim(),
+        phone_number: `${countryCode} ${formData.phone.trim()}`,
         specialization_areas: formData.specializations
           .split(',')
           .map((s) => s.trim())
@@ -194,9 +195,18 @@ export default function FirstLoginForm() {
                 Phone Number
               </label>
               <div className="flex rounded-xl border border-neutral-200 overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent transition-all">
-                <span className="inline-flex items-center px-4 text-sm text-neutral-500 bg-neutral-50 border-r border-neutral-200 font-bold select-none">
-                  +1
-                </span>
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="inline-flex items-center px-3 text-sm text-neutral-800 bg-neutral-50 border-r border-neutral-200 font-bold outline-none cursor-pointer"
+                >
+                  <option value="+91">+91 (IN)</option>
+                  <option value="+1">+1 (US)</option>
+                  <option value="+44">+44 (UK)</option>
+                  <option value="+971">+971 (AE)</option>
+                  <option value="+65">+65 (SG)</option>
+                  <option value="+61">+61 (AU)</option>
+                </select>
                 <input
                   type="tel"
                   name="phone"
@@ -204,7 +214,7 @@ export default function FirstLoginForm() {
                   value={formData.phone}
                   onChange={handleChange}
                   className="block w-full bg-white py-3 px-4 text-sm text-neutral-950 font-medium placeholder:text-neutral-400 focus:outline-none"
-                  placeholder="(555) 019-2834"
+                  placeholder="98974 22911"
                 />
               </div>
             </div>

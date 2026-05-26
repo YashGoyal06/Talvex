@@ -40,17 +40,9 @@ export default function Login() {
         return;
       }
     }
-    // Fallback defaults
-    if (role === 'admin') {
-      setEmail('admin@talvex.com');
-      setPassword('demo1234');
-    } else if (role === 'recruiter') {
-      setEmail('recruiter@talvex.com');
-      setPassword('demo_recruiter_token_64_characters_long_for_testing_purposes_123');
-    } else {
-      setEmail('candidate@demo.com');
-      setPassword('demo1234');
-    }
+    // No fallback defaults to ensure clean testing on real data
+    setEmail('');
+    setPassword('');
   }, [role, testCredentials]);
 
   const handleSubmit = async (e) => {

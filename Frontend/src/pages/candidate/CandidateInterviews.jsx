@@ -20,7 +20,7 @@ export default function CandidateInterviews() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
 
-  const userEmail = localStorage.getItem('userEmail') || 'candidate@demo.com';
+  const userEmail = localStorage.getItem('userEmail') || '';
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -192,7 +192,7 @@ export default function CandidateInterviews() {
                                 </div>
                                 <Link
                                   to={`/candidate/interview/${interview.room_id}`}
-                                  className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer"
+                                  className="px-5 py-2.5 btn-whitish rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer focus:outline-hidden"
                                 >
                                   <Video size={13} className="text-[#FCD34D]" /> Join Room
                                 </Link>
@@ -202,7 +202,7 @@ export default function CandidateInterviews() {
                                 <div className="flex items-center gap-2">
                                   <Users size={12} className="text-neutral-400" />
                                   <span className="text-[10px] font-bold text-neutral-500">
-                                    Interviewer: <span className="text-neutral-800">Sarah Jenkins (Lead Recruiter)</span>
+                                    Interviewer: <span className="text-neutral-800">{interview.job?.company_name || 'Technical Interviewer'}</span>
                                   </span>
                                 </div>
                               </div>
@@ -481,7 +481,7 @@ export default function CandidateInterviews() {
                   </button>
                   <button 
                     type="submit" 
-                    className="px-6 py-2.5 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold transition-all shadow-md cursor-pointer"
+                    className="px-6 py-2.5 btn-whitish rounded-full text-xs font-bold transition-all shadow-md cursor-pointer focus:outline-hidden"
                   >
                     Schedule Session
                   </button>

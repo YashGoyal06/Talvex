@@ -5,6 +5,7 @@ import { api } from '../../api/api';
 
 export default function InterviewsView() {
   const navigate = useNavigate();
+  const recruiterName = localStorage.getItem('userName') || 'Recruiter';
   const [activeTab, setActiveTab] = useState('upcoming');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [toast, setToast] = useState(null);
@@ -176,7 +177,7 @@ export default function InterviewsView() {
                                 </div>
                                 <Link
                                   to={`/recruiter/interview/${interview.room_id}`}
-                                  className="px-4 py-2 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shrink-0"
+                                  className="px-4 py-2 btn-whitish rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shrink-0 focus:outline-hidden"
                                 >
                                   <Video size={12} className="text-orange-500" /> Join Room
                                 </Link>
@@ -186,7 +187,7 @@ export default function InterviewsView() {
                                 <div className="flex items-center gap-2">
                                   <Users size={12} className="text-neutral-400" />
                                   <span className="text-[10px] font-bold text-neutral-500">
-                                    Interviewer: <span className="text-neutral-800">Sarah Jenkins</span>
+                                    Interviewer: <span className="text-neutral-800">{recruiterName}</span>
                                   </span>
                                 </div>
                               </div>
@@ -462,7 +463,7 @@ export default function InterviewsView() {
                   </button>
                   <button 
                     type="submit" 
-                    className="px-5 py-2 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold transition-all shadow-md"
+                    className="px-5 py-2 btn-whitish rounded-full text-xs font-bold transition-all shadow-md focus:outline-hidden"
                   >
                     Schedule Session
                   </button>

@@ -146,7 +146,7 @@ export default function AdminAnalytics() {
 
   // ─── DYNAMIC RECRUITER ASSIGNMENT AND METRICS ───
   const recruitersList = (Array.isArray(activeRecruiters) && activeRecruiters.length > 0) ? activeRecruiters : [
-    { id: 'default-1', full_name: 'Sarah Jenkins', job_title: 'Lead Recruiter', department: 'Talent Acquisition', email: 'recruiter@talvex.com' }
+    { id: 'default-1', full_name: 'Lead Recruiter', job_title: 'Lead Recruiter', department: 'Talent Acquisition', email: 'recruiter@tarvax.com' }
   ];
 
   const getRecruiterIndexForJob = (jobId) => {
@@ -961,7 +961,7 @@ export default function AdminAnalytics() {
               {jobs.map((job) => {
                 const appCount = candidates.filter(c => c.job === job.id).length;
                 const recIdx = getRecruiterIndexForJob(job.id);
-                const recName = recruitersList[recIdx]?.full_name || 'Sarah Jenkins';
+                const recName = recruitersList[recIdx]?.full_name || 'Lead Recruiter';
                 return (
                   <tr key={job.id} className="hover:bg-neutral-800/10 transition-colors">
                     <td className="p-4 text-sm font-black text-white">{job.title}</td>

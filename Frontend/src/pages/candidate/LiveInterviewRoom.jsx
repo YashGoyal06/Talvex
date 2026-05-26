@@ -700,7 +700,7 @@ export default function LiveInterviewRoom() {
                 </div>
               )}
               <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur text-neutral-800 text-[9px] font-bold px-3 py-1 rounded-full border border-neutral-200 shadow-sm">
-                {isRecruiter ? `${candidateName} (Candidate)` : "Sarah Jenkins (Interviewer)"}
+                {isRecruiter ? `${candidateName} (Candidate)` : `${session?.company?.name || "Company Recruiter"} (Interviewer)`}
               </div>
             </div>
 
