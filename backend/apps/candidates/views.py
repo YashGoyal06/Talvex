@@ -218,6 +218,7 @@ class CandidateProfileUpdateView(views.APIView):
         first_name = request.data.get('first_name')
         last_name = request.data.get('last_name')
         phone = request.data.get('phone')
+        photo_url = request.data.get('photo_url')
 
         candidate, created = Candidate.objects.get_or_create(
             email=email,
@@ -227,6 +228,11 @@ class CandidateProfileUpdateView(views.APIView):
                 'phone': phone or ''
             }
         )
+        
+        if photo_url is not None:
+            if not isinstance(candidate.parsed_resume, dict):
+                candidate.parsed_resume = {}
+            candidate.parsed_resume['photo_url'] = photo_url
         
         if parsed_resume is not None:
             if not isinstance(candidate.parsed_resume, dict):

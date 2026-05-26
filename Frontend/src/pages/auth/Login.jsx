@@ -50,6 +50,9 @@ export default function Login() {
           api.candidates.getProfile(email)
             .then(res => {
               const candidate = res.candidate;
+              if (candidate && candidate.parsed_resume && candidate.parsed_resume.photo_url) {
+                localStorage.setItem('userPhoto', candidate.parsed_resume.photo_url);
+              }
               const hasResume = candidate && candidate.parsed_resume && candidate.parsed_resume.documents && candidate.parsed_resume.documents.length > 0;
               if (hasResume) {
                 navigate('/candidate/dashboard');
@@ -134,6 +137,9 @@ export default function Login() {
         try {
           const profileRes = await api.candidates.getProfile(res.user.email);
           const candidate = profileRes.candidate;
+          if (candidate && candidate.parsed_resume && candidate.parsed_resume.photo_url) {
+            localStorage.setItem('userPhoto', candidate.parsed_resume.photo_url);
+          }
           const hasResume = candidate && candidate.parsed_resume && candidate.parsed_resume.documents && candidate.parsed_resume.documents.length > 0;
           if (hasResume) {
             navigate('/candidate/dashboard');
