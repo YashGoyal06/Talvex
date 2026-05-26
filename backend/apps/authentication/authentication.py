@@ -39,11 +39,7 @@ class SupabaseJWTAuthentication(authentication.BaseAuthentication):
                 payload = jwt.decode(token, options={"verify_signature": False})
             else:
                 # Decodes using Supabase HS256 secret key
-                import base64
-                try:
-                    decoded_secret = base64.b64decode(jwt_secret)
-                except Exception:
-                    decoded_secret = jwt_secret
+                decoded_secret = jwt_secret.encode('utf-8') if isinstance(jwt_secret, str) else jwt_secret
                 payload = jwt.decode(token, decoded_secret, algorithms=['HS256'], audience='authenticated')
         except jwt.ExpiredSignatureError:
             raise exceptions.AuthenticationFailed('Token has expired')
