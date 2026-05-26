@@ -193,8 +193,8 @@ export default function CandidateProfile({ candidateId }) {
             onClick={() => setActiveTab(tab)}
             className={`px-5 py-2 rounded-full text-xs font-bold capitalize transition-all ${
               activeTab === tab 
-                ? 'bg-white text-neutral-950 shadow-sm' 
-                : 'text-neutral-400 hover:text-neutral-950'
+                ? 'border-2 border-orange-500 text-orange-500 bg-transparent shadow-sm' 
+                : 'text-neutral-450 hover:text-neutral-950 border border-transparent'
             }`}
           >
             {tab}

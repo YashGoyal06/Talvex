@@ -151,7 +151,7 @@ const NavItem = ({ icon, label, to, exact, isAdminTheme }) => {
       to={to}
       className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 relative group ${
         isActive 
-          ? 'border-2 border-orange-500 text-orange-500 bg-transparent font-black shadow-sm'
+          ? 'border-2 border-orange-500 text-orange-500 bg-transparent font-extrabold shadow-sm'
           : (isAdminTheme 
               ? 'text-neutral-400 hover:text-white hover:bg-neutral-800/40 font-medium' 
               : 'text-neutral-500 hover:text-neutral-950 hover:bg-neutral-50 font-medium')

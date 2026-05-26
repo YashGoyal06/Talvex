@@ -111,13 +111,13 @@ export default function InterviewsView() {
           </p>
         </div>
         
-        <div className="flex bg-neutral-100 p-1 rounded-full shrink-0 self-start md:self-auto w-fit">
+        <div className="flex gap-1.5 bg-neutral-100 p-1.5 rounded-full shrink-0 self-start md:self-auto w-fit">
           <button
             onClick={() => setActiveTab('upcoming')}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
               activeTab === 'upcoming' 
-                ? 'bg-white text-neutral-950 shadow-sm' 
-                : 'text-neutral-400 hover:text-neutral-950'
+                ? 'border-2 border-orange-500 text-orange-500 bg-transparent shadow-sm' 
+                : 'text-neutral-450 hover:text-neutral-950 border border-transparent'
             }`}
           >
             Upcoming
@@ -126,8 +126,8 @@ export default function InterviewsView() {
             onClick={() => setActiveTab('past')}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
               activeTab === 'past' 
-                ? 'bg-white text-neutral-950 shadow-sm' 
-                : 'text-neutral-400 hover:text-neutral-950'
+                ? 'border-2 border-orange-500 text-orange-500 bg-transparent shadow-sm' 
+                : 'text-neutral-450 hover:text-neutral-950 border border-transparent'
             }`}
           >
             Past Sessions
