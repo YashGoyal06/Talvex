@@ -18,6 +18,43 @@ export default function Login() {
 
   useEffect(() => {
     setMounted(true);
+
+    // Parse Supabase OAuth callback tokens from the URL hash fragment
+    const hash = window.location.hash;
+    if (hash && (hash.includes('access_token=') || hash.includes('refresh_token='))) {
+      // Replace hash sign with search syntax to parse via URLSearchParams
+      const cleanHash = hash.startsWith('#') ? hash.substring(1) : hash;
+      const params = new URLSearchParams(cleanHash);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken) {
+        try {
+          // Decode JWT payload locally to obtain candidate email and name
+          const payloadBase64 = accessToken.split('.')[1];
+          const payload = JSON.parse(atob(payloadBase64));
+          const email = payload.email;
+          const userMetadata = payload.user_metadata || {};
+          const fullName = userMetadata.full_name || email.split('@')[0];
+
+          localStorage.setItem('accessToken', accessToken);
+          localStorage.setItem('refreshToken', refreshToken || '');
+          localStorage.setItem('userRole', 'candidate');
+          localStorage.setItem('userEmail', email);
+          localStorage.setItem('userName', fullName);
+
+          // Clear hash from URL cleanly without refreshing page
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+
+          navigate('/candidate/dashboard');
+          return;
+        } catch (e) {
+          console.error("Failed to parse OAuth token parameters:", e);
+          setError("Failed to extract Google session details.");
+        }
+      }
+    }
+
     async function loadTestCredentials() {
       try {
         const data = await api.auth.getTestCredentials();
@@ -27,7 +64,7 @@ export default function Login() {
       }
     }
     loadTestCredentials();
-  }, []);
+  }, [navigate]);
 
   // Sync email/password when toggling role tabs
   useEffect(() => {
@@ -107,23 +144,11 @@ export default function Login() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
+  const handleGoogleSignIn = () => {
     setError('');
-    try {
-      // Mock Google OAuth login flow by logging in as a Google Candidate
-      const res = await api.auth.candidateLogin('yash.goyal.google@gmail.com', 'google-oauth-flow');
-      localStorage.setItem('accessToken', res.access);
-      localStorage.setItem('refreshToken', res.refresh);
-      localStorage.setItem('userRole', 'candidate');
-      localStorage.setItem('userEmail', res.user.email);
-      localStorage.setItem('userName', 'Yash Goyal (Google)');
-      setLoading(false);
-      navigate('/candidate/dashboard');
-    } catch (err) {
-      setLoading(false);
-      setError('Google Sign In failed.');
-    }
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://kntarabupposhjhlqwob.supabase.co';
+    const redirectTo = `${window.location.origin}/login?role=candidate`;
+    window.location.href = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
   };
 
   if (!mounted) return null;
