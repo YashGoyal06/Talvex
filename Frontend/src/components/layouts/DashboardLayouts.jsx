@@ -33,9 +33,11 @@ const Sidebar = ({ role }) => {
       {/* Brand Header */}
       <div>
         <div className="flex items-center gap-3 px-2 py-2">
-          <img src="/talvax_logo_navbar.png" className="w-10 h-10 object-contain shadow-sm" alt="Talvex Logo" />
+          <img src="/talvax_logo_navbar.png" className="w-10 h-10 object-contain shadow-sm" alt="Tarvax Logo" />
           <div>
-            <h1 className={`text-lg font-bold tracking-tight leading-none ${isAdminTheme ? 'text-white' : 'text-neutral-950'}`}>Talvex</h1>
+            <h1 className={`text-lg font-bold tracking-tight leading-none ${isAdminTheme ? 'text-white' : 'text-neutral-950'}`}>
+              {role === 'admin' ? 'Tarvax' : 'Talvax'}
+            </h1>
             <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isAdminTheme ? 'text-[#FF6B00]' : 'text-neutral-400'}`}>Enterprise</p>
           </div>
         </div>
