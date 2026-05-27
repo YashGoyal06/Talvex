@@ -96,6 +96,13 @@ export default function LiveInterviewRoom() {
   // Focus Mode (Anti-Cheating)
   const [tabSwitches, setTabSwitches] = useState(0);
   const [focusWarning, setFocusWarning] = useState(false);
+  const [focusModeEnabled, setFocusModeEnabled] = useState(true);
+  const [candidateFocusModeEnabled, setCandidateFocusModeEnabled] = useState(true);
+  const focusModeEnabledRef = useRef(true);
+
+  useEffect(() => {
+    focusModeEnabledRef.current = focusModeEnabled;
+  }, [focusModeEnabled]);
 
   // Console Drawer states for Run/Submit
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -200,11 +207,23 @@ export default function LiveInterviewRoom() {
     }
   }, [micOn, socket]);
 
+  // Sync focusModeEnabled changes
+  useEffect(() => {
+    if (isRecruiter) return;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'focus_mode_status',
+        enabled: focusModeEnabled
+      }));
+    }
+  }, [focusModeEnabled, socket, isRecruiter]);
+
   // Cheating Prevention / Focus Mode
   useEffect(() => {
     if (isRecruiter) return;
 
     const handleVisibilityChange = () => {
+      if (!focusModeEnabledRef.current) return;
       if (document.hidden) {
         setTabSwitches(prev => {
           const newCount = prev + 1;
@@ -223,6 +242,7 @@ export default function LiveInterviewRoom() {
     };
 
     const handleWindowBlur = () => {
+      if (!focusModeEnabledRef.current) return;
       setTabSwitches(prev => {
         const newCount = prev + 1;
         if (socket && socket.readyState === WebSocket.OPEN) {
@@ -282,7 +302,22 @@ export default function LiveInterviewRoom() {
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun2.l.google.com:19302' },
           { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' }
+          { urls: 'stun:stun4.l.google.com:19302' },
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
         ]
       });
 
@@ -317,6 +352,14 @@ export default function LiveInterviewRoom() {
         type: 'peer_mic_status',
         micOn
       }));
+
+      // Send initial focus mode state if candidate
+      if (!isRecruiter) {
+        ws.send(JSON.stringify({
+          type: 'focus_mode_status',
+          enabled: focusModeEnabledRef.current
+        }));
+      }
     };
 
     ws.onmessage = async (event) => {
@@ -338,12 +381,20 @@ export default function LiveInterviewRoom() {
       } else if (data.type === 'problem_change') {
         setSelectedProblem(data.problem);
         setCode(data.code);
+      } else if (data.type === 'focus_mode_status') {
+        setCandidateFocusModeEnabled(data.enabled);
       } else if (data.type === 'peer_status') {
 
         setChatMessages(prev => [...prev, { from: 'System', text: data.message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
         
         if (data.action === 'join') {
           console.log("Peer joined, creating WebRTC offer...");
+          if (!isRecruiter && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'focus_mode_status',
+              enabled: focusModeEnabledRef.current
+            }));
+          }
           const pc = createPeerConnection(localStreamRef.current);
           try {
             const offer = await pc.createOffer();
@@ -894,6 +945,31 @@ export default function LiveInterviewRoom() {
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
               LIVE
             </span>
+
+            <div className="h-3.5 w-[1px] bg-neutral-200 mx-1 hidden sm:block"></div>
+            {isRecruiter ? (
+              <span className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8px] font-bold border shrink-0 ${
+                candidateFocusModeEnabled
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                  : 'bg-rose-50 border-rose-200 text-rose-600 animate-pulse'
+              }`}>
+                <span className={`w-1 h-1 rounded-full ${candidateFocusModeEnabled ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                Candidate Focus: {candidateFocusModeEnabled ? 'ON' : 'OFF'}
+              </span>
+            ) : (
+              <button
+                onClick={() => setFocusModeEnabled(v => !v)}
+                className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8px] font-bold border transition-all cursor-pointer shrink-0 ${
+                  focusModeEnabled
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'
+                    : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                }`}
+                title="Toggle Focus Mode (Anti-Cheating)"
+              >
+                <span className={`w-1 h-1 rounded-full ${focusModeEnabled ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                Focus Mode: {focusModeEnabled ? 'ON' : 'OFF'}
+              </button>
+            )}
           </div>
 
           {/* Dynamic tabs of workspace in header */}
