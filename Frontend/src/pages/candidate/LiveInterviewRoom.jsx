@@ -677,119 +677,126 @@ export default function LiveInterviewRoom() {
           {/* Problem description */}
           {activeTab === 'problem' && selectedProblem && (
             <div className="absolute inset-0 overflow-y-auto p-6 text-neutral-700 select-text scrollbar-none">
-              <div className="max-w-4xl space-y-4">
-
-                {/* ── Recruiter Edit Mode ── */}
-                {isRecruiter && isEditingQuestion ? (
-                  <div className="space-y-4 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 flex items-center gap-1.5"><Edit3 size={12}/> Editing Question</span>
-                      <div className="flex gap-2">
-                        <button onClick={handleSaveQuestion} className="flex items-center gap-1.5 px-4 py-1.5 bg-neutral-950 text-white rounded-full text-[10px] font-bold hover:bg-neutral-800 transition-all cursor-pointer shadow-sm"><Check size={11}/> Save</button>
-                        <button onClick={() => setIsEditingQuestion(false)} className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-neutral-200 text-neutral-600 rounded-full text-[10px] font-bold hover:bg-neutral-50 transition-all cursor-pointer"><X size={11}/> Cancel</button>
+              <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 items-start w-full">
+                
+                {/* Left Column: Questions List or Edit Form */}
+                <div className="flex-1 w-full space-y-6">
+                  {/* ── Recruiter Edit Mode ── */}
+                  {isRecruiter && isEditingQuestion ? (
+                    <div className="space-y-4 animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 flex items-center gap-1.5"><Edit3 size={12}/> Editing Question</span>
+                        <div className="flex gap-2">
+                          <button onClick={handleSaveQuestion} className="flex items-center gap-1.5 px-4 py-1.5 bg-neutral-950 text-white rounded-full text-[10px] font-bold hover:bg-neutral-800 transition-all cursor-pointer shadow-sm"><Check size={11}/> Save</button>
+                          <button onClick={() => setIsEditingQuestion(false)} className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-neutral-200 text-neutral-600 rounded-full text-[10px] font-bold hover:bg-neutral-50 transition-all cursor-pointer"><X size={11}/> Cancel</button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Title</label>
+                          <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-sm font-bold text-neutral-900 focus:outline-none focus:border-orange-400 transition-colors" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Difficulty</label>
+                          <select value={editDiff} onChange={e => setEditDiff(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-700 focus:outline-none focus:border-orange-400 cursor-pointer transition-colors">
+                            <option>Easy</option>
+                            <option>Medium</option>
+                            <option>Hard</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Description</label>
+                          <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={8} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-xs font-medium text-neutral-700 focus:outline-none focus:border-orange-400 resize-none leading-relaxed transition-colors" />
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Title</label>
-                        <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-sm font-bold text-neutral-900 focus:outline-none focus:border-orange-400 transition-colors" />
-                      </div>
-                      <div>
-                        <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Difficulty</label>
-                        <select value={editDiff} onChange={e => setEditDiff(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-700 focus:outline-none focus:border-orange-400 cursor-pointer transition-colors">
-                          <option>Easy</option>
-                          <option>Medium</option>
-                          <option>Hard</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Description</label>
-                        <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={8} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-xs font-medium text-neutral-700 focus:outline-none focus:border-orange-400 resize-none leading-relaxed transition-colors" />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* ── Read-Only Problem View (both roles) ── */
-                  <div className="space-y-8 divide-y divide-neutral-100">
-                    {!problems || problems.length === 0 ? (
-                      <div className="text-center py-10 text-neutral-400 text-xs font-bold">
-                        No questions in this interview room. Use the actions below to import questions.
-                      </div>
-                    ) : (
-                      problems.map((prob, idx) => (
-                        <div key={prob.id || idx} className={`space-y-4 ${idx > 0 ? 'pt-6' : ''}`}>
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-sm font-extrabold text-orange-600 font-mono">Q{idx + 1}.</span>
-                            <h2 className="text-base font-extrabold text-neutral-950 tracking-tight">{prob.title}</h2>
-                            <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${
-                              prob.difficulty?.toLowerCase() === 'easy' 
-                                ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
-                                : prob.difficulty?.toLowerCase() === 'hard'
-                                  ? 'bg-red-500/10 text-red-600 border border-red-500/20'
-                                  : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
-                            }`}>
-                              {prob.difficulty}
-                            </span>
+                  ) : (
+                    /* ── Read-Only Problem View (both roles) ── */
+                    <div className="space-y-8 divide-y divide-neutral-100">
+                      {!problems || problems.length === 0 ? (
+                        <div className="text-center py-10 text-neutral-400 text-xs font-bold">
+                          No questions in this interview room. Use the actions on the right to import questions.
+                        </div>
+                      ) : (
+                        problems.map((prob, idx) => (
+                          <div key={prob.id || idx} className={`space-y-4 ${idx > 0 ? 'pt-6' : ''}`}>
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-sm font-extrabold text-orange-600 font-mono">Q{idx + 1}.</span>
+                              <h2 className="text-base font-extrabold text-neutral-950 tracking-tight">{prob.title}</h2>
+                              <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${
+                                prob.difficulty?.toLowerCase() === 'easy' 
+                                  ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
+                                  : prob.difficulty?.toLowerCase() === 'hard'
+                                    ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                                    : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
+                              }`}>
+                                {prob.difficulty}
+                              </span>
 
-                            {/* Solve/Active Button */}
-                            <button
-                              onClick={() => {
-                                handleProblemChange(prob);
-                                setActiveTab('code');
-                              }}
-                              className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold transition-all cursor-pointer shadow-sm ${
-                                selectedProblem?.id === prob.id
-                                  ? 'bg-orange-500 text-white hover:bg-orange-600 font-extrabold'
-                                  : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
-                              }`}
-                            >
-                              {selectedProblem?.id === prob.id ? 'Active in Editor' : 'Solve in Editor'}
-                            </button>
-
-                            {isRecruiter && (
+                              {/* Solve/Active Button */}
                               <button
                                 onClick={() => {
-                                  setSelectedProblem(prob);
-                                  setEditTitle(prob.title || '');
-                                  setEditDiff(prob.difficulty || 'Medium');
-                                  setEditDesc(prob.description || '');
-                                  setIsEditingQuestion(true);
+                                  handleProblemChange(prob);
+                                  setActiveTab('code');
                                 }}
-                                className="ml-2 flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 text-neutral-500 rounded-full text-[9px] font-bold hover:bg-neutral-50 hover:text-neutral-800 transition-all cursor-pointer shadow-sm"
+                                className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold transition-all cursor-pointer shadow-sm ${
+                                  selectedProblem?.id === prob.id
+                                    ? 'bg-orange-500 text-white hover:bg-orange-600 font-extrabold'
+                                    : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                                }`}
                               >
-                                <Edit3 size={10}/> Edit
+                                {selectedProblem?.id === prob.id ? 'Active in Editor' : 'Solve in Editor'}
                               </button>
+
+                              {isRecruiter && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedProblem(prob);
+                                    setEditTitle(prob.title || '');
+                                    setEditDiff(prob.difficulty || 'Medium');
+                                    setEditDesc(prob.description || '');
+                                    setIsEditingQuestion(true);
+                                  }}
+                                  className="ml-2 flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 text-neutral-500 rounded-full text-[9px] font-bold hover:bg-neutral-50 hover:text-neutral-800 transition-all cursor-pointer shadow-sm"
+                                >
+                                  <Edit3 size={10}/> Edit
+                                </button>
+                              )}
+                            </div>
+
+                            <p className="text-neutral-500 text-xs leading-relaxed whitespace-pre-wrap font-medium">{prob.description}</p>
+
+                            {prob.test_cases && prob.test_cases.length > 0 && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
+                                {prob.test_cases.slice(0, 2).map((ex, i) => (
+                                  <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
+                                    <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Example {i + 1}</div>
+                                    <div className="text-xs font-mono space-y-1">
+                                      <div><span className="text-neutral-500">Input: </span><span className="text-orange-600">{ex.input}</span></div>
+                                      <div><span className="text-neutral-600">Output: </span><span className="text-emerald-600">{ex.expected_output}</span></div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
 
-                          <p className="text-neutral-500 text-xs leading-relaxed whitespace-pre-wrap font-medium">{prob.description}</p>
-
-                          {prob.test_cases && prob.test_cases.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
-                              {prob.test_cases.slice(0, 2).map((ex, i) => (
-                                <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
-                                  <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Example {i + 1}</div>
-                                  <div className="text-xs font-mono space-y-1">
-                                    <div><span className="text-neutral-500">Input: </span><span className="text-orange-600">{ex.input}</span></div>
-                                    <div><span className="text-neutral-600">Output: </span><span className="text-emerald-600">{ex.expected_output}</span></div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {/* ── Recruiter Import Actions (always visible at bottom for recruiter) ── */}
+                {/* Right Column: Sticky Recruiter Import Actions (sidebar) */}
                 {isRecruiter && !isEditingQuestion && (
-                  <div className="pt-6 border-t border-neutral-100 mt-6 flex flex-col items-end w-full">
-                    <div className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-3">Import Questions</div>
-                    <div className="flex flex-wrap gap-3 justify-end">
+                  <div className="w-full lg:w-80 shrink-0 bg-neutral-50 border border-neutral-200/60 rounded-3xl p-5 space-y-4 lg:sticky lg:top-0">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Import Questions</div>
+                    <p className="text-neutral-500 text-[10px] font-medium leading-relaxed">
+                      Add new coding problems to the interview room by uploading a PDF or fetching from Codeforces.
+                    </p>
+                    
+                    <div className="space-y-3 pt-2">
                       {/* PDF Import */}
-                      <label className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-bold transition-all cursor-pointer shadow-sm border ${
+                      <label className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-bold transition-all cursor-pointer shadow-sm border w-full ${
                         pdfUploading 
                           ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-wait'
                           : 'bg-white text-neutral-700 border-neutral-200 hover:border-orange-300 hover:text-orange-600 hover:shadow-md'
@@ -802,20 +809,23 @@ export default function LiveInterviewRoom() {
                         <input type="file" accept=".pdf" onChange={handlePdfImport} className="hidden" disabled={pdfUploading} />
                       </label>
 
-                      {/* Codeforces Import */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-white border border-neutral-200 rounded-full overflow-hidden shadow-sm">
-                          <span className="text-[9px] font-bold text-neutral-400 pl-3 uppercase tracking-wider">Count:</span>
+                      <div className="h-[1px] bg-neutral-200/80 my-2"></div>
+
+                      {/* Codeforces Import Container */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between bg-white border border-neutral-200 rounded-full px-3.5 py-1.5 shadow-sm">
+                          <span className="text-[9px] font-black text-neutral-400 uppercase tracking-wider">Count:</span>
                           <input 
                             type="number" min={1} max={20} value={cfCount} 
                             onChange={e => setCfCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 5)))} 
-                            className="w-10 text-center text-[10px] font-bold text-neutral-900 bg-transparent outline-none py-2"
+                            className="w-10 text-right text-[10px] font-bold text-neutral-900 bg-transparent outline-none"
                           />
                         </div>
+                        
                         <button 
                           onClick={handleCodeforcesImport} 
                           disabled={cfImporting}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-bold transition-all cursor-pointer shadow-sm border ${
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-bold transition-all cursor-pointer shadow-sm border w-full ${
                             cfImporting
                               ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-wait'
                               : 'bg-white text-neutral-700 border-neutral-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md'
