@@ -295,3 +295,52 @@ class CandidateProfileUpdateView(views.APIView):
             }
         }, status=status.HTTP_200_OK)
 
+
+from .models import CandidateLogin
+from datetime import timedelta
+
+class CandidateTrackLoginView(views.APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        candidate, created = Candidate.objects.get_or_create(
+            email=email,
+            defaults={
+                'first_name': email.split('@')[0].capitalize(),
+                'last_name': '',
+                'phone': ''
+            }
+        )
+
+        today = timezone.localdate()
+        CandidateLogin.objects.get_or_create(candidate=candidate, login_date=today)
+
+        logins = CandidateLogin.objects.filter(candidate=candidate).order_by('login_date')
+        login_dates = [l.login_date.strftime("%Y-%m-%d") for l in logins]
+        login_dates_set = {l.login_date for l in logins}
+
+        # Calculate streak (consecutive days backward from today)
+        streak = 0
+        current_date = today
+        while current_date in login_dates_set:
+            streak += 1
+            current_date -= timedelta(days=1)
+
+        # If today hasn't been logged yet but yesterday was
+        if streak == 0:
+            current_date = today - timedelta(days=1)
+            while current_date in login_dates_set:
+                streak += 1
+                current_date -= timedelta(days=1)
+
+        return Response({
+            "message": "Login tracked successfully.",
+            "streak": streak,
+            "login_dates": login_dates
+        }, status=status.HTTP_200_OK)
+
+

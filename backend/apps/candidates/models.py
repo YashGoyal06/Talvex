@@ -28,3 +28,14 @@ class Application(TenantModel):
 
     def __str__(self):
         return f"{self.candidate} - {self.job.title} ({self.company.name})"
+
+class CandidateLogin(models.Model):
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name="logins")
+    login_date = models.DateField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('candidate', 'login_date')
+
+    def __str__(self):
+        return f"{self.candidate.email} logged in on {self.login_date}"
+

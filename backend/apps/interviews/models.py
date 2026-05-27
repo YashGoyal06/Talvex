@@ -19,7 +19,9 @@ class InterviewSession(TenantModel):
     # Structured scorecard feedback:
     # {"technical_skills": 4, "communication": 3, "problem_solving": 4, "culture_fit": 5, "recommendation": "Yes", "notes": "..."}
     feedback = models.JSONField(default=dict, blank=True)
+    questions = models.JSONField(default=list, blank=True) # Isolated list of coding questions for this specific interview room
     created_at = models.DateTimeField(default=timezone.now)
+
 
     def __str__(self):
         return f"Interview with {self.candidate.email} for {self.job.title}"

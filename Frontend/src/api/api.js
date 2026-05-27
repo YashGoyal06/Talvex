@@ -251,6 +251,14 @@ export const api = {
         body: { email, ...profileData },
         skipAuth: true
       });
+    },
+
+    async trackLogin(email) {
+      return request('/candidates/track-login/', {
+        method: 'POST',
+        body: { email },
+        skipAuth: true
+      });
     }
   },
 
@@ -354,6 +362,31 @@ export const api = {
       return request(`/interviews/${roomId}/feedback/`, {
         method: 'POST',
         body: { feedback: feedbackData }
+      });
+    },
+
+    async getQuestions(roomId) {
+      return request(`/interviews/${roomId}/questions/`);
+    },
+
+    async saveQuestions(roomId, questions) {
+      return request(`/interviews/${roomId}/questions/`, {
+        method: 'POST',
+        body: { questions }
+      });
+    },
+
+    async importQuestionsPdf(roomId, formData) {
+      return request(`/interviews/${roomId}/import-pdf/`, {
+        method: 'POST',
+        body: formData
+      });
+    },
+
+    async importCodeforces(roomId, count) {
+      return request(`/interviews/${roomId}/import-codeforces/`, {
+        method: 'POST',
+        body: { count }
       });
     }
   }

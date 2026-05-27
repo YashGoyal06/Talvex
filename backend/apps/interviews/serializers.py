@@ -9,8 +9,9 @@ class InterviewSessionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InterviewSession
-        fields = ['id', 'room_id', 'candidate', 'job', 'scheduled_at', 'completed_at', 'recording_url', 'private_notes', 'feedback', 'created_at']
+        fields = ['id', 'room_id', 'candidate', 'job', 'scheduled_at', 'completed_at', 'recording_url', 'private_notes', 'feedback', 'questions', 'created_at']
         read_only_fields = ['id', 'room_id', 'created_at']
+
 
     def create(self, validated_data):
         candidate_id = self.context['request'].data.get('candidate_id')

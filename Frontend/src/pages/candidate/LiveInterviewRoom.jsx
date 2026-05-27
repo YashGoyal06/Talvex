@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Video, Share, MoreHorizontal, PhoneMissed, MessageSquare, PenTool, LayoutTemplate, MicOff, VideoOff, Monitor, Users, Send, ChevronRight, Eraser, Star, Sparkles } from 'lucide-react';
+import { Mic, Video, Share, MoreHorizontal, PhoneMissed, MessageSquare, PenTool, LayoutTemplate, MicOff, VideoOff, Monitor, Users, Send, ChevronRight, Eraser, Star, Sparkles, Upload, Globe, ChevronDown, Edit3, Check, X, FileText, Code2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/api';
 
@@ -15,6 +15,39 @@ export default function LiveInterviewRoom() {
   const [activeTab, setActiveTab] = useState('problem');
   const [rightActiveTab, setRightActiveTab] = useState(isRecruiter ? 'notes-right' : 'chat-right');
   const [editorTheme, setEditorTheme] = useState('black');
+  const [editorLanguage, setEditorLanguage] = useState('javascript');
+
+  // Recruiter question editing/importing states
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [cfImporting, setCfImporting] = useState(false);
+  const [cfCount, setCfCount] = useState(5);
+  const [isEditingQuestion, setIsEditingQuestion] = useState(false);
+
+  const [editTitle, setEditTitle] = useState('');
+  const [editDiff, setEditDiff] = useState('Medium');
+  const [editDesc, setEditDesc] = useState('');
+
+  const languageMeta = {
+    javascript: { label: 'JavaScript', ext: 'js', mono: 'JS' },
+    python: { label: 'Python', ext: 'py', mono: 'PY' },
+    typescript: { label: 'TypeScript', ext: 'ts', mono: 'TS' },
+    java: { label: 'Java', ext: 'java', mono: 'JV' },
+    'c++': { label: 'C++', ext: 'cpp', mono: 'C+' },
+    go: { label: 'Go', ext: 'go', mono: 'GO' },
+    rust: { label: 'Rust', ext: 'rs', mono: 'RS' }
+  };
+
+  const defaultStarterCodes = {
+    javascript: `function solution() {\n  // Write JavaScript solution here\n}`,
+    python: `def solution():\n    # Write Python solution here\n    pass`,
+    typescript: `function solution(): any {\n  // Write TypeScript solution here\n}`,
+    java: `public class Solution {\n    public static void main(String[] args) {\n        // Write Java solution here\n    }\n}`,
+    'c++': `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write C++ solution here\n    return 0;\n}`,
+    go: `package main\nimport "fmt"\n\nfunc main() {\n    // Write Go solution here\n}`,
+    rust: `fn main() {\n    // Write Rust solution here\n}`
+  };
+
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
 
   // Media states
   const [micOn, setMicOn] = useState(true);
@@ -26,6 +59,7 @@ export default function LiveInterviewRoom() {
   const [problems, setProblems] = useState([]);
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [code, setCode] = useState('// Select a question to get started.');
+
 
   // Chat & Socket
   const [chatMessages, setChatMessages] = useState([]);
@@ -70,12 +104,16 @@ export default function LiveInterviewRoom() {
           setNote(sessionData.private_notes);
         }
 
-        // Fetch questions
-        const questionsList = await api.assessments.listQuestions();
+        // Fetch questions for this specific interview room
+        const questionsList = await api.interviews.getQuestions(roomId);
         setProblems(questionsList);
         if (questionsList.length > 0) {
           setSelectedProblem(questionsList[0]);
           setCode(questionsList[0].starter_code?.javascript || `function solution() {\n  // Write your code here\n}`);
+          
+          setEditTitle(questionsList[0].title || '');
+          setEditDiff(questionsList[0].difficulty || 'Medium');
+          setEditDesc(questionsList[0].description || '');
         }
       } catch (err) {
         console.error("Failed to load interview room details:", err);
@@ -83,6 +121,7 @@ export default function LiveInterviewRoom() {
     }
     loadData();
   }, [roomId]);
+
 
   // 2. Setup Local Media Stream
   useEffect(() => {
@@ -220,10 +259,21 @@ export default function LiveInterviewRoom() {
         setCode(data.code);
       } else if (data.type === 'chat_message') {
         setChatMessages(prev => [...prev, { from: data.from, text: data.text, time: data.time }]);
+      } else if (data.type === 'language_change') {
+        setEditorLanguage(data.language);
+      } else if (data.type === 'problems_update') {
+        setProblems(data.problems);
+        // Find matching active problem
+        if (data.problems.length > 0) {
+          const currentActive = data.problems.find(p => p.title === selectedProblem?.title) || data.problems[0];
+          setSelectedProblem(currentActive);
+          setCode(currentActive.starter_code?.[editorLanguage] || defaultStarterCodes[editorLanguage] || '');
+        }
       } else if (data.type === 'problem_change') {
         setSelectedProblem(data.problem);
         setCode(data.code);
       } else if (data.type === 'peer_status') {
+
         setChatMessages(prev => [...prev, { from: 'System', text: data.message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
         
         if (data.action === 'join') {
@@ -403,9 +453,17 @@ export default function LiveInterviewRoom() {
     }
   }, [activeTab]);
 
+  // Close language dropdown on outside click
+  useEffect(() => {
+    if (!showLangDropdown) return;
+    const handler = () => setShowLangDropdown(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showLangDropdown]);
+
   // Code & Problem sync handlers
   const handleCodeChange = (newCode) => {
-    if (isRecruiter) return; // Recruiter is read-only
+    if (isRecruiter) return; // Recruiter is read-only for solving
     setCode(newCode);
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
@@ -416,10 +474,15 @@ export default function LiveInterviewRoom() {
   };
 
   const handleProblemChange = (p) => {
-    if (isRecruiter) return; // Only candidate can change standard programming problem
     setSelectedProblem(p);
-    const starter = p.starter_code?.javascript || `function solution() {\n  // Write solution\n}`;
+    
+    setEditTitle(p.title || '');
+    setEditDiff(p.difficulty || 'Medium');
+    setEditDesc(p.description || '');
+
+    const starter = p.starter_code?.[editorLanguage] || defaultStarterCodes[editorLanguage] || `function solution() {\n  // Write solution\n}`;
     setCode(starter);
+
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'problem_change',
@@ -428,6 +491,100 @@ export default function LiveInterviewRoom() {
       }));
     }
   };
+
+  // Language change handler
+  const handleLanguageChange = (lang) => {
+    setEditorLanguage(lang);
+    setShowLangDropdown(false);
+    // Update code with new language starter
+    if (selectedProblem) {
+      const starter = selectedProblem.starter_code?.[lang] || defaultStarterCodes[lang] || '';
+      setCode(starter);
+    } else {
+      setCode(defaultStarterCodes[lang] || '');
+    }
+    // Broadcast language change
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'language_change', language: lang }));
+    }
+  };
+
+  // Recruiter: Save edited question
+  const handleSaveQuestion = async () => {
+    if (!selectedProblem) return;
+    const updatedProblems = problems.map(p =>
+      p.id === selectedProblem.id
+        ? { ...p, title: editTitle, difficulty: editDiff, description: editDesc }
+        : p
+    );
+    try {
+      await api.interviews.saveQuestions(roomId, updatedProblems);
+      setProblems(updatedProblems);
+      const updatedCurrent = updatedProblems.find(p => p.id === selectedProblem.id);
+      setSelectedProblem(updatedCurrent);
+      setIsEditingQuestion(false);
+      // Broadcast
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'problems_update', problems: updatedProblems }));
+      }
+    } catch (e) {
+      alert('Failed to save question: ' + e.message);
+    }
+  };
+
+  // Recruiter: Import from PDF
+  const handlePdfImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const result = await api.interviews.importQuestionsPdf(roomId, formData);
+      const newProblems = result.questions || result;
+      setProblems(newProblems);
+      if (newProblems.length > 0) {
+        setSelectedProblem(newProblems[0]);
+        setEditTitle(newProblems[0].title || '');
+        setEditDiff(newProblems[0].difficulty || 'Medium');
+        setEditDesc(newProblems[0].description || '');
+        setCode(newProblems[0].starter_code?.[editorLanguage] || defaultStarterCodes[editorLanguage] || '');
+      }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'problems_update', problems: newProblems }));
+      }
+    } catch (err) {
+      alert('PDF import failed: ' + err.message);
+    } finally {
+      setPdfUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  // Recruiter: Import from Codeforces
+  const handleCodeforcesImport = async () => {
+    setCfImporting(true);
+    try {
+      const result = await api.interviews.importCodeforces(roomId, cfCount);
+      const newProblems = result.questions || result;
+      setProblems(newProblems);
+      if (newProblems.length > 0) {
+        setSelectedProblem(newProblems[0]);
+        setEditTitle(newProblems[0].title || '');
+        setEditDiff(newProblems[0].difficulty || 'Medium');
+        setEditDesc(newProblems[0].description || '');
+        setCode(newProblems[0].starter_code?.[editorLanguage] || defaultStarterCodes[editorLanguage] || '');
+      }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'problems_update', problems: newProblems }));
+      }
+    } catch (err) {
+      alert('Codeforces import failed: ' + err.message);
+    } finally {
+      setCfImporting(false);
+    }
+  };
+
 
   // Chat message send
   const sendChat = () => {
@@ -511,19 +668,20 @@ export default function LiveInterviewRoom() {
               </button>
             ))}
 
-            {/* Problem Selector (Candidate Only) */}
-            {!isRecruiter && problems.length > 0 && (
+            {/* Problem Selector (Recruiter and Candidate) */}
+            {problems.length > 0 && (
               <div className="ml-4 flex items-center gap-1">
                 {problems.map((p, idx) => (
                   <button
                     key={p.id}
-                    onClick={() => { handleProblemChange(p); setActiveTab('code'); }}
+                    onClick={() => { handleProblemChange(p); setActiveTab('problem'); }}
                     className={`px-2.5 py-0.5 text-[8px] rounded-full font-mono font-bold transition-all cursor-pointer ${
                       selectedProblem?.id === p.id 
                         ? 'bg-orange-500/10 text-orange-600 border border-orange-500/20' 
                         : 'text-neutral-500 hover:text-neutral-750'
                     }`}
                   >
+
                     Q{idx + 1}
                   </button>
                 ))}
@@ -539,32 +697,124 @@ export default function LiveInterviewRoom() {
           {activeTab === 'problem' && selectedProblem && (
             <div className="absolute inset-0 overflow-y-auto p-6 text-neutral-700 select-text scrollbar-none">
               <div className="max-w-4xl space-y-4">
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-lg font-extrabold text-neutral-950 tracking-tight">{selectedProblem.title}</h2>
-                  <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${
-                    selectedProblem.difficulty?.toLowerCase() === 'easy' 
-                      ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
-                      : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
-                  }`}>
-                    {selectedProblem.difficulty}
-                  </span>
-                </div>
-                
-                <p className="text-neutral-500 text-xs leading-relaxed whitespace-pre-wrap font-medium">{selectedProblem.description}</p>
-                
-                {selectedProblem.test_cases && selectedProblem.test_cases.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
-                    {selectedProblem.test_cases.slice(0, 2).map((ex, i) => (
-                      <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
-                        <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Example {i + 1}</div>
-                        <div className="text-xs font-mono space-y-1">
-                          <div><span className="text-neutral-500">Input: </span><span className="text-orange-600">{ex.input}</span></div>
-                          <div><span className="text-neutral-600">Output: </span><span className="text-emerald-600">{ex.expected_output}</span></div>
-                        </div>
+
+                {/* ── Recruiter Edit Mode ── */}
+                {isRecruiter && isEditingQuestion ? (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 flex items-center gap-1.5"><Edit3 size={12}/> Editing Question</span>
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveQuestion} className="flex items-center gap-1.5 px-4 py-1.5 bg-neutral-950 text-white rounded-full text-[10px] font-bold hover:bg-neutral-800 transition-all cursor-pointer shadow-sm"><Check size={11}/> Save</button>
+                        <button onClick={() => setIsEditingQuestion(false)} className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-neutral-200 text-neutral-600 rounded-full text-[10px] font-bold hover:bg-neutral-50 transition-all cursor-pointer"><X size={11}/> Cancel</button>
                       </div>
-                    ))}
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Title</label>
+                        <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-sm font-bold text-neutral-900 focus:outline-none focus:border-orange-400 transition-colors" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Difficulty</label>
+                        <select value={editDiff} onChange={e => setEditDiff(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-700 focus:outline-none focus:border-orange-400 cursor-pointer transition-colors">
+                          <option>Easy</option>
+                          <option>Medium</option>
+                          <option>Hard</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Description</label>
+                        <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={8} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-xs font-medium text-neutral-700 focus:outline-none focus:border-orange-400 resize-none leading-relaxed transition-colors" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Read-Only Problem View (both roles) ── */
+                  <>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-lg font-extrabold text-neutral-950 tracking-tight">{selectedProblem.title}</h2>
+                      <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${
+                        selectedProblem.difficulty?.toLowerCase() === 'easy' 
+                          ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
+                          : selectedProblem.difficulty?.toLowerCase() === 'hard'
+                            ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                            : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
+                      }`}>
+                        {selectedProblem.difficulty}
+                      </span>
+                      {isRecruiter && (
+                        <button onClick={() => setIsEditingQuestion(true)} className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 text-neutral-500 rounded-full text-[9px] font-bold hover:bg-neutral-50 hover:text-neutral-800 transition-all cursor-pointer shadow-sm">
+                          <Edit3 size={10}/> Edit
+                        </button>
+                      )}
+                    </div>
+                    
+                    <p className="text-neutral-500 text-xs leading-relaxed whitespace-pre-wrap font-medium">{selectedProblem.description}</p>
+                    
+                    {selectedProblem.test_cases && selectedProblem.test_cases.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
+                        {selectedProblem.test_cases.slice(0, 2).map((ex, i) => (
+                          <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
+                            <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Example {i + 1}</div>
+                            <div className="text-xs font-mono space-y-1">
+                              <div><span className="text-neutral-500">Input: </span><span className="text-orange-600">{ex.input}</span></div>
+                              <div><span className="text-neutral-600">Output: </span><span className="text-emerald-600">{ex.expected_output}</span></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* ── Recruiter Import Actions (always visible at bottom for recruiter) ── */}
+                {isRecruiter && !isEditingQuestion && (
+                  <div className="pt-6 border-t border-neutral-100 mt-6">
+                    <div className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-3">Import Questions</div>
+                    <div className="flex flex-wrap gap-3">
+                      {/* PDF Import */}
+                      <label className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-bold transition-all cursor-pointer shadow-sm border ${
+                        pdfUploading 
+                          ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-wait'
+                          : 'bg-white text-neutral-700 border-neutral-200 hover:border-orange-300 hover:text-orange-600 hover:shadow-md'
+                      }`}>
+                        {pdfUploading ? (
+                          <><Loader2 className="animate-spin" size={13}/> Parsing PDF...</>
+                        ) : (
+                          <><FileText size={13}/> Import from PDF</>
+                        )}
+                        <input type="file" accept=".pdf" onChange={handlePdfImport} className="hidden" disabled={pdfUploading} />
+                      </label>
+
+                      {/* Codeforces Import */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center bg-white border border-neutral-200 rounded-full overflow-hidden shadow-sm">
+                          <span className="text-[9px] font-bold text-neutral-400 pl-3 uppercase tracking-wider">Count:</span>
+                          <input 
+                            type="number" min={1} max={20} value={cfCount} 
+                            onChange={e => setCfCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 5)))} 
+                            className="w-10 text-center text-[10px] font-bold text-neutral-900 bg-transparent outline-none py-2"
+                          />
+                        </div>
+                        <button 
+                          onClick={handleCodeforcesImport} 
+                          disabled={cfImporting}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-bold transition-all cursor-pointer shadow-sm border ${
+                            cfImporting
+                              ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-wait'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-md'
+                          }`}
+                        >
+                          {cfImporting ? (
+                            <><Loader2 className="animate-spin" size={13}/> Importing...</>
+                          ) : (
+                            <><Globe size={13}/> Import from Codeforces</>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
+
               </div>
             </div>
           )}
@@ -573,9 +823,55 @@ export default function LiveInterviewRoom() {
           {activeTab === 'code' && (
             <div className="absolute inset-0 flex flex-col bg-white">
               {/* Code subheader */}
-              <div className="h-8 bg-neutral-50 border-b border-neutral-200/80 flex items-center px-4 shrink-0 justify-between">
-                <div className="flex items-center text-orange-600 text-[9px] font-extrabold tracking-wider font-mono">
-                  solution.js
+              <div className="h-9 bg-neutral-50 border-b border-neutral-200/80 flex items-center px-4 shrink-0 justify-between">
+                <div className="flex items-center gap-3">
+                  {/* Dynamic filename */}
+                  <div className="flex items-center text-orange-600 text-[9px] font-extrabold tracking-wider font-mono">
+                    <Code2 size={11} className="mr-1.5 text-orange-400"/>
+                    solution.{languageMeta[editorLanguage]?.ext || 'js'}
+                  </div>
+
+                  <div className="h-3.5 w-[1px] bg-neutral-200"></div>
+
+                  {/* ── Language Selector Dropdown ── */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowLangDropdown(v => !v); }}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 rounded-full text-[9px] font-bold text-neutral-700 hover:border-orange-300 hover:text-orange-600 transition-all cursor-pointer shadow-sm"
+                    >
+                      <span className="w-4 h-4 rounded bg-gradient-to-br from-orange-400 to-orange-600 text-white flex items-center justify-center text-[7px] font-black leading-none">
+                        {languageMeta[editorLanguage]?.mono || 'JS'}
+                      </span>
+                      {languageMeta[editorLanguage]?.label || 'JavaScript'}
+                      <ChevronDown size={10} className={`transition-transform ${showLangDropdown ? 'rotate-180' : ''}`}/>
+                    </button>
+
+                    {showLangDropdown && (
+                      <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-neutral-200 rounded-2xl shadow-xl z-50 py-1.5 animate-fade-in">
+                        {Object.entries(languageMeta).map(([key, meta]) => (
+                          <button
+                            key={key}
+                            onClick={() => handleLanguageChange(key)}
+                            className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-[10px] font-bold transition-all cursor-pointer ${
+                              editorLanguage === key 
+                                ? 'bg-orange-50 text-orange-600'
+                                : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                            }`}
+                          >
+                            <span className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black leading-none ${
+                              editorLanguage === key
+                                ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white'
+                                : 'bg-neutral-100 text-neutral-500'
+                            }`}>
+                              {meta.mono}
+                            </span>
+                            {meta.label}
+                            {editorLanguage === key && <Check size={10} className="ml-auto text-orange-500"/>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-3">
@@ -616,7 +912,7 @@ export default function LiveInterviewRoom() {
                     </>
                   )}
                 </div>
-                <span className="text-[9px] font-bold text-neutral-400 font-mono">JavaScript (ES6)</span>
+                <span className="text-[9px] font-bold text-neutral-400 font-mono">{languageMeta[editorLanguage]?.label || 'JavaScript'}</span>
               </div>
             </div>
           )}

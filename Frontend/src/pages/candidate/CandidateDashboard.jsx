@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { 
   Calendar as CalendarIcon, Video, CheckCircle2, Clock, Inbox, X, 
   Briefcase, UserPlus, ArrowUpRight, Laptop, ShieldCheck, HelpCircle, 
-  Star, FileText, Trash2, Upload, AlertCircle, Award, CheckCircle, Sparkles, User, Bell
+  Star, FileText, Trash2, Upload, AlertCircle, Award, CheckCircle, Sparkles, User, Bell,
+  Flame, Mail, Phone, ExternalLink, Pencil
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api/api';
+
 
 export default function CandidateDashboard() {
   const navigate = useNavigate();
@@ -18,6 +20,9 @@ export default function CandidateDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+
+  const [heatmapData, setHeatmapData] = useState({ streak: 0, login_dates: [] });
+  const [photoUrl, setPhotoUrl] = useState('');
 
   // Candidate DB Profile details (resumes, certs, skills)
   const [profile, setProfile] = useState({
@@ -41,16 +46,36 @@ export default function CandidateDashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showToast('Uploading profile photo...');
+    try {
+      const res = await api.auth.uploadFile(file, 'avatars');
+      if (res.url) {
+        setPhotoUrl(res.url);
+        await api.candidates.updateProfile(userEmail, { photo_url: res.url });
+        showToast('Profile photo updated successfully!');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to upload photo.');
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
-      const [appsData, interviewsData, jobsData, profileRes] = await Promise.all([
+      const [appsData, interviewsData, jobsData, profileRes, trackRes] = await Promise.all([
         api.candidates.myApplications(userEmail),
         api.interviews.myInterviews(userEmail),
         api.jobs.list(),
-        api.candidates.getProfile(userEmail).catch(() => null)
+        api.candidates.getProfile(userEmail).catch(() => null),
+        api.candidates.trackLogin(userEmail).catch(() => ({ streak: 0, login_dates: [] }))
       ]);
+
+      setHeatmapData(trackRes);
 
       const candidateProfile = profileRes?.candidate;
       const documents = candidateProfile?.parsed_resume?.documents || [];
@@ -68,6 +93,7 @@ export default function CandidateDashboard() {
 
       if (candidateProfile) {
         const resume = candidateProfile.parsed_resume || {};
+        setPhotoUrl(resume.photo_url || '');
         setProfile({
           skills: resume.skills || [],
           documents: resume.documents || [],
@@ -75,6 +101,7 @@ export default function CandidateDashboard() {
         });
       } else if (appsData && appsData.length > 0 && appsData[0].candidate) {
         const resume = appsData[0].candidate.parsed_resume || {};
+        setPhotoUrl(resume.photo_url || '');
         setProfile({
           skills: resume.skills || [],
           documents: resume.documents || [],
@@ -88,6 +115,7 @@ export default function CandidateDashboard() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadData();
@@ -253,8 +281,51 @@ export default function CandidateDashboard() {
     );
   }
 
+  const renderHeatmap = () => {
+    const tiles = [];
+    const today = new Date();
+    const startDate = new Date();
+    startDate.setDate(today.getDate() - 83); // 12 weeks = 84 days
+
+    const datesSet = new Set(heatmapData.login_dates || []);
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    for (let i = 0; i < 84; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const dateString = d.toISOString().split('T')[0];
+      const hasLoggedIn = datesSet.has(dateString);
+      tiles.push({
+        date: dateString,
+        hasLoggedIn,
+        dayLabel: daysOfWeek[d.getDay()],
+        dayNum: d.getDate(),
+        monthLabel: d.toLocaleString('default', { month: 'short' })
+      });
+    }
+
+    return (
+      <div className="grid grid-flow-col grid-rows-7 gap-1.5 overflow-x-auto py-1 scrollbar-none max-w-full">
+        {tiles.map((tile, idx) => (
+          <div
+            key={idx}
+            className={`w-[11px] h-[11px] rounded-[2.5px] transition-all duration-300 hover:scale-130 cursor-pointer relative group ${
+              tile.hasLoggedIn
+                ? 'bg-gradient-to-br from-orange-400 to-amber-500 shadow-[0_2px_6px_rgba(249,115,22,0.35)]'
+                : 'bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 border border-neutral-200/20'
+            }`}
+          >
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block bg-neutral-900 text-white text-[8px] font-bold px-2 py-0.5 rounded-[4px] whitespace-nowrap z-40 shadow-md">
+              {tile.monthLabel} {tile.dayNum}: {tile.hasLoggedIn ? 'Checked In' : 'No Activity'}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-10 max-w-[1400px] mx-auto pb-20 animate-fade-in text-neutral-800 select-none">
+    <div className="space-y-8 max-w-[1440px] mx-auto pb-20 animate-fade-in text-neutral-800 select-none px-4">
       
       {/* Toast */}
       {toast && (
@@ -270,80 +341,162 @@ export default function CandidateDashboard() {
         </div>
       )}
 
-      {/* ─── TOP SECTION: PROFILE SUMMARY & PERFS ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch">
-        
-        {/* 5. PROFILE COMPLETION WIDGET */}
-        <div className="md:col-span-8 bg-white/70 backdrop-blur-xl border border-white/40 p-7 rounded-[2.2rem] shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-baseline mb-4">
-              <h3 className="text-lg font-black text-neutral-950">Profile Completion</h3>
-              <span className="text-2xl font-black text-orange-500">{completionPercentage}%</span>
-            </div>
-            
-            <div className="relative w-full h-[12px] bg-neutral-100 rounded-full overflow-hidden border border-neutral-200/50 mb-6">
-              <div 
-                className="absolute top-0 left-0 h-full bg-orange-500 transition-all duration-500"
-                style={{ width: `${completionPercentage}%` }}
-              ></div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-bold text-neutral-500">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className={profile.documents.length > 0 ? 'text-emerald-500' : 'text-neutral-300'} />
-                <span>Resume Uploaded</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className={profile.skills.length > 0 ? 'text-emerald-500' : 'text-neutral-300'} />
-                <span>Skills Listed</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className={profile.certifications.length > 0 ? 'text-emerald-500' : 'text-neutral-300'} />
-                <span>Certifications</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className={applications.length > 0 ? 'text-emerald-500' : 'text-neutral-300'} />
-                <span>First Application</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 9. PERFORMANCE INSIGHTS WIDGET */}
-        <div className="md:col-span-4 bg-white/70 backdrop-blur-xl border border-white/40 p-7 rounded-[2.2rem] shadow-sm flex flex-col justify-between">
-          <div>
-            <h3 className="text-base font-extrabold text-neutral-950">Performance Insights</h3>
-            <span className="text-[10px] text-neutral-400 font-bold uppercase mt-1 block">Test evaluations</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="bg-white border border-neutral-100 p-3.5 rounded-2xl">
-              <span className="text-[10px] font-bold text-neutral-400 block mb-1">Assessment Success</span>
-              <span className="text-xl font-black text-neutral-900">{successRate}</span>
-            </div>
-            <div className="bg-white border border-neutral-100 p-3.5 rounded-2xl">
-              <span className="text-[10px] font-bold text-neutral-400 block mb-1">Interview Rate</span>
-              <span className="text-xl font-black text-neutral-900">{interviewRate}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ─── MAIN HUB LAYOUT ─── */}
+      {/* ─── 3-COLUMN HUB LAYOUT ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Left Columns (8/12): Application Overview, Recommended Jobs, Documents Manager */}
-        <div className="lg:col-span-8 space-y-8">
-          
-          {/* 1. APPLICATION OVERVIEW */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-7 rounded-[2.2rem] shadow-sm space-y-5">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-extrabold text-neutral-950">Application Overview</h3>
-              <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-3 py-1 rounded-full">{applications.length} Active</span>
+        {/* ================= COLUMN 1 (LEFT 3/12): THE PHOTO CARD ================= */}
+        <div className="lg:col-span-3">
+          <div className="bg-white/70 backdrop-blur-xl border border-white/40 p-6 rounded-[2.2rem] shadow-sm flex flex-col items-center relative group overflow-hidden">
+            
+            {/* Top glassmorphic background layer */}
+            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-orange-500/10 to-transparent z-0"></div>
+            
+            {/* Real-time Picture Card Container */}
+            <div className="w-full h-64 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200/50 flex items-center justify-center relative z-10 shadow-xs mb-6 group/pic">
+              {photoUrl ? (
+                <img src={photoUrl} alt="Candidate Profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-neutral-400">
+                  <User size={64} className="stroke-1 text-neutral-300" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mt-2">No Photo</span>
+                </div>
+              )}
+
+              {/* Floating Upload Photo Button Overlay */}
+              <label className="absolute inset-0 bg-neutral-950/45 backdrop-blur-xs flex items-center justify-center opacity-0 group-hover/pic:opacity-100 transition-all duration-300 cursor-pointer">
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                <div className="bg-white p-3 rounded-full shadow-md text-neutral-800 hover:scale-110 transition-transform">
+                  <Pencil size={16} className="text-orange-500" />
+                </div>
+              </label>
             </div>
 
-            <div className="space-y-4">
+            {/* Candidate Info Details */}
+            <div className="text-center w-full z-10">
+              <h2 className="text-lg font-black text-neutral-950 truncate">{storedName}</h2>
+              <p className="text-[10px] text-neutral-400 font-bold uppercase mt-1">
+                {profile.skills.length > 0 ? profile.skills.slice(0, 2).join(' / ') : 'Talvex Candidate'}
+              </p>
+              
+              {/* Experience Pill */}
+              <div className="inline-block mt-3 bg-orange-50 text-orange-600 border border-orange-100/50 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">
+                {profile.skills.length > 0 ? '4+ Years Experience' : 'Ready to Work'}
+              </div>
+
+              <div className="w-full h-[1px] bg-neutral-150 my-5"></div>
+
+              {/* Sleek Contact Symbol / Links section */}
+              <div className="flex items-center justify-center gap-3 w-full">
+                <a href={`tel:${candidatePhone || '9897422911'}`} className="p-2.5 rounded-xl border border-neutral-100 hover:border-orange-500/20 bg-white hover:bg-orange-50/20 text-neutral-500 hover:text-orange-500 transition-all shadow-2xs" title="Call Candidate">
+                  <Phone size={14} />
+                </a>
+                <a href={`mailto:${userEmail}`} className="p-2.5 rounded-xl border border-neutral-100 hover:border-orange-500/20 bg-white hover:bg-orange-50/20 text-neutral-500 hover:text-orange-500 transition-all shadow-2xs" title="Email Candidate">
+                  <Mail size={14} />
+                </a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="p-2.5 rounded-xl border border-neutral-100 hover:border-orange-500/20 bg-white hover:bg-orange-50/20 text-neutral-500 hover:text-orange-500 transition-all shadow-2xs" title="LinkedIn Profile">
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ================= COLUMN 2 (MIDDLE 6/12): CORE ACTIVITY & APPLICATIONS ================= */}
+        <div className="lg:col-span-6 space-y-8">
+          
+          {/* Unique Contributions Heatmap Tracker */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/40 p-6 rounded-[2.2rem] shadow-sm space-y-4 relative overflow-hidden">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-extrabold text-neutral-950 tracking-tight flex items-center gap-1.5">
+                  Check-in Heatmap
+                </h3>
+                <p className="text-[9px] text-neutral-400 font-semibold mt-0.5">Tracking daily login consistency</p>
+              </div>
+
+              <div className="flex items-center gap-1 bg-orange-50 text-orange-600 border border-orange-100 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">
+                <Flame size={12} className="fill-orange-500 text-orange-500" />
+                <span>Streak: {heatmapData.streak} days</span>
+              </div>
+            </div>
+
+            {/* Renders Heatmap grid */}
+            <div className="border border-neutral-100 bg-neutral-50/40 p-4 rounded-2xl">
+              {renderHeatmap()}
+              <div className="flex justify-between items-center text-[8px] font-bold text-neutral-400 mt-3 pt-2 border-t border-neutral-100/50">
+                <span>12 Weeks Ago</span>
+                <div className="flex items-center gap-1">
+                  <span>Less</span>
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-neutral-100 border border-neutral-200/30"></span>
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-gradient-to-br from-orange-400 to-amber-500 shadow-sm"></span>
+                  <span>More</span>
+                </div>
+                <span>Today</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Profile Completion and Performance side-by-side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+            
+            {/* PROFILE COMPLETION WIDGET */}
+            <div className="bg-white/70 backdrop-blur-xl border border-white/40 p-6 rounded-[2.2rem] shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-baseline mb-3">
+                  <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Profile Progress</h3>
+                  <span className="text-xl font-black text-orange-500">{completionPercentage}%</span>
+                </div>
+                
+                <div className="relative w-full h-[8px] bg-neutral-100 rounded-full overflow-hidden border border-neutral-200/50 mb-4">
+                  <div 
+                    className="absolute top-0 left-0 h-full bg-orange-500 transition-all duration-500"
+                    style={{ width: `${completionPercentage}%` }}
+                  ></div>
+                </div>
+
+                <div className="space-y-1.5 text-[9px] font-bold text-neutral-500">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 size={12} className={profile.documents.length > 0 ? 'text-emerald-500' : 'text-neutral-300'} />
+                    <span>Resume Uploaded</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 size={12} className={profile.skills.length > 0 ? 'text-emerald-500' : 'text-neutral-300'} />
+                    <span>Skills Listed</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* PERFORMANCE INSIGHTS WIDGET */}
+            <div className="bg-white/70 backdrop-blur-xl border border-white/40 p-6 rounded-[2.2rem] shadow-sm flex flex-col justify-between">
+              <div>
+                <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Insights</h3>
+                <span className="text-[8px] text-neutral-400 font-bold uppercase mt-0.5 block">Test evaluations</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="bg-white border border-neutral-100 p-2.5 rounded-xl text-center">
+                  <span className="text-[8px] font-bold text-neutral-400 block mb-0.5">Success Rate</span>
+                  <span className="text-sm font-black text-neutral-900">{successRate}</span>
+                </div>
+                <div className="bg-white border border-neutral-100 p-2.5 rounded-xl text-center">
+                  <span className="text-[8px] font-bold text-neutral-400 block mb-0.5">Interview Rate</span>
+                  <span className="text-sm font-black text-neutral-900">{interviewRate}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* APPLICATION OVERVIEW */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-[2.2rem] shadow-sm space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-extrabold text-neutral-950 tracking-tight">Application Pipeline</h3>
+              <span className="text-[9px] bg-neutral-100 text-neutral-500 font-bold px-3 py-1 rounded-full">{applications.length} Active</span>
+            </div>
+
+            <div className="space-y-3">
               {applications.map(app => {
                 let stageColor = 'bg-blue-50 text-blue-600 border-blue-100';
                 if (app.current_stage?.toLowerCase() === 'applied') stageColor = 'bg-neutral-50 text-neutral-600 border-neutral-200';
@@ -354,136 +507,94 @@ export default function CandidateDashboard() {
                 else if (app.status === 'Rejected') stageColor = 'bg-red-50 text-red-600 border-red-100';
 
                 return (
-                  <div key={app.id} className="bg-white border border-neutral-100 p-5 rounded-2xl flex items-center justify-between shadow-xs">
+                  <div key={app.id} className="bg-white border border-neutral-100 p-4 rounded-xl flex items-center justify-between shadow-xs">
                     <div>
                       <h4 className="text-xs font-black text-neutral-950">{app.job_title}</h4>
-                      <p className="text-[10px] text-neutral-400 mt-1 font-semibold">{app.company_name} · Applied on {new Date(app.created_at).toLocaleDateString()}</p>
+                      <p className="text-[9px] text-neutral-400 mt-0.5 font-semibold">{app.company_name} · Applied on {new Date(app.created_at).toLocaleDateString()}</p>
                     </div>
-                    <span className={`text-[9px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full border ${stageColor}`}>
+                    <span className={`text-[8px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border ${stageColor}`}>
                       {app.status === 'Active' ? app.current_stage : app.status}
                     </span>
                   </div>
                 );
               })}
               {applications.length === 0 && (
-                <div className="text-neutral-400 text-center text-xs py-8 bg-white border border-neutral-100 rounded-2xl">
+                <div className="text-neutral-400 text-center text-xs py-8 bg-white border border-neutral-100 rounded-xl">
                   You haven't submitted any applications yet.
                 </div>
               )}
             </div>
           </div>
 
-          {/* 4. RECOMMENDED JOBS */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-7 rounded-[2.2rem] shadow-sm space-y-5">
-            <h3 className="text-lg font-extrabold text-neutral-950">Recommended Opportunities</h3>
+          {/* RECOMMENDED OPPORTUNITIES */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-[2.2rem] shadow-sm space-y-4">
+            <h3 className="text-sm font-extrabold text-neutral-950 tracking-tight">Recommended Opportunities</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {recommendedJobs.map(job => (
-                <div key={job.id} className="bg-white border border-neutral-100 p-5 rounded-2xl flex flex-col justify-between shadow-xs group hover:border-orange-500/20 transition-all">
+                <div key={job.id} className="bg-white border border-neutral-100 p-4 rounded-xl flex flex-col justify-between shadow-xs hover:border-orange-500/20 transition-all">
                   <div>
                     <h4 className="text-xs font-black text-neutral-950 truncate">{job.title}</h4>
-                    <p className="text-[9px] text-neutral-400 font-bold uppercase mt-1">{job.department} • {job.location}</p>
-                    <p className="text-[10px] text-neutral-500 leading-relaxed mt-2.5 line-clamp-2">{job.description}</p>
+                    <p className="text-[8px] text-neutral-400 font-bold uppercase mt-0.5">{job.department} • {job.location}</p>
+                    <p className="text-[9px] text-neutral-500 leading-relaxed mt-2 line-clamp-2">{job.description}</p>
                   </div>
                   
                   <button 
                     onClick={() => { setSelectedJob(job); setModalError(''); setShowApplyModal(true); }}
-                    className="w-full mt-4 btn-whitish text-[10px] font-black uppercase tracking-wider py-2.5 rounded-xl transition-all cursor-pointer shadow-xs focus:outline-hidden"
+                    className="w-full mt-3 btn-whitish text-[9px] font-black uppercase tracking-wider py-2 rounded-lg transition-all cursor-pointer shadow-xs focus:outline-hidden"
                   >
                     Apply Now
                   </button>
                 </div>
               ))}
               {recommendedJobs.length === 0 && (
-                <div className="col-span-3 text-neutral-400 text-center text-xs py-6">No suggestions right now. Check back later!</div>
-              )}
-            </div>
-          </div>
-
-          {/* 10. DOCUMENTS & RESUME */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-7 rounded-[2.2rem] shadow-sm space-y-5">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-extrabold text-neutral-950">Documents & Resumes</h3>
-                <p className="text-[9px] text-neutral-400 font-semibold mt-1">Manage certifications and active resumes</p>
-              </div>
-              
-              <label className="px-4 py-2 border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white bg-transparent rounded-full text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow-xs">
-                <Upload size={12} /> Upload File
-                <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleUploadDocument} className="hidden" />
-              </label>
-            </div>
-
-            <div className="space-y-3">
-              {profile.documents.map((doc, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-white border border-neutral-100 rounded-2xl shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-neutral-100 rounded-xl flex items-center justify-center text-neutral-500 shrink-0">
-                      <FileText size={16} />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-neutral-800 truncate max-w-[200px] sm:max-w-xs">{doc.name}</h5>
-                      <span className="text-[9px] text-neutral-400 mt-1 block font-mono">Uploaded on {doc.uploadedAt}</span>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => handleDeleteDocument(doc.name)}
-                    className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                    title="Delete document"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-              {profile.documents.length === 0 && (
-                <div className="text-neutral-400 text-center text-xs py-8 italic">No uploaded documents. Upload your CV to verify matching fits.</div>
+                <div className="col-span-2 text-neutral-400 text-center text-xs py-6">No suggestions right now.</div>
               )}
             </div>
           </div>
 
         </div>
 
-        {/* Right Columns (4/12): Upcoming Interviews, Assessments, Calendar, Activity, Notifications */}
-        <div className="lg:col-span-4 space-y-8">
+        {/* ================= COLUMN 3 (RIGHT 3/12): AUXILIARY ACTIVITY & EVENTS ================= */}
+        <div className="lg:col-span-3 space-y-8">
           
-          {/* 2. UPCOMING INTERVIEWS */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-[2.2rem] shadow-sm space-y-4">
-            <h3 className="text-base font-extrabold text-neutral-950">Upcoming Interviews</h3>
+          {/* UPCOMING INTERVIEWS */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-5 rounded-[2.2rem] shadow-sm space-y-3.5">
+            <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Interviews</h3>
             
             {nextInterview ? (
-              <div className="bg-neutral-950 text-white p-4.5 rounded-2xl space-y-4 border border-neutral-900">
+              <div className="bg-neutral-950 text-white p-4 rounded-xl space-y-3 border border-neutral-900">
                 <div>
-                  <h4 className="text-xs font-black text-neutral-100 leading-none">{nextInterview.job?.title || 'Software Requisition'}</h4>
-                  <p className="text-[10px] text-neutral-400 font-semibold mt-1.5">{nextInterview.company?.name || 'Tarvax Enterprise'}</p>
-                  <p className="text-[9px] text-neutral-400 mt-1 font-mono">{new Date(nextInterview.scheduled_at).toLocaleString()}</p>
+                  <h4 className="text-xs font-black text-neutral-100 leading-none">{nextInterview.job?.title || 'Coding Round'}</h4>
+                  <p className="text-[9px] text-neutral-400 font-semibold mt-1">{nextInterview.company?.name || 'Talvex Partner'}</p>
+                  <p className="text-[8px] text-neutral-400 mt-1 font-mono">{new Date(nextInterview.scheduled_at).toLocaleString()}</p>
                 </div>
                 <Link 
                   to={`/candidate/interview/${nextInterview.room_id}`}
-                  className="w-full block text-center py-2 border border-orange-500 hover:bg-orange-500 text-orange-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-xs"
+                  className="w-full block text-center py-1.5 border border-orange-500 hover:bg-orange-500 text-orange-500 hover:text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shadow-xs"
                 >
                   Join Code Room
                 </Link>
               </div>
             ) : (
-              <div className="text-neutral-400 text-center text-xs py-6">No upcoming code rounds.</div>
+              <div className="text-neutral-400 text-center text-xs py-4">No upcoming interviews.</div>
             )}
           </div>
 
-          {/* 3. ASSESSMENTS SECTION */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-[2.2rem] shadow-sm space-y-4">
-            <h3 className="text-base font-extrabold text-neutral-950">Assessments</h3>
+          {/* ASSESSMENTS SECTION */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-5 rounded-[2.2rem] shadow-sm space-y-3.5">
+            <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Assessments</h3>
             
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {pendingAssessments.map(ass => (
-                <div key={ass.id} className="p-3.5 bg-purple-50 border border-purple-100 rounded-xl flex items-center justify-between">
+                <div key={ass.id} className="p-3 bg-purple-50 border border-purple-100/50 rounded-xl flex items-center justify-between">
                   <div>
-                    <h5 className="text-xs font-bold text-purple-950">Pending: {ass.role}</h5>
-                    <span className="text-[9px] text-purple-400 block font-mono mt-0.5">{ass.duration}</span>
+                    <h5 className="text-[10px] font-bold text-purple-950 truncate max-w-[100px]">Pending: {ass.role}</h5>
+                    <span className="text-[8px] text-purple-400 block font-mono mt-0.5">{ass.duration}</span>
                   </div>
                   <Link 
                     to={`/candidate/assessment/${ass.token}`}
-                    className="text-[9px] bg-purple-600 hover:bg-purple-700 text-white font-extrabold px-3 py-1.5 rounded transition-all shrink-0 uppercase"
+                    className="text-[8px] bg-purple-600 hover:bg-purple-700 text-white font-extrabold px-2.5 py-1 rounded transition-all shrink-0 uppercase"
                   >
                     Start
                   </Link>
@@ -491,27 +602,27 @@ export default function CandidateDashboard() {
               ))}
               
               {completedScores.map((score, i) => (
-                <div key={i} className="p-3.5 bg-white border border-neutral-100 rounded-xl flex items-center justify-between shadow-xs">
+                <div key={i} className="p-3 bg-white border border-neutral-100 rounded-xl flex items-center justify-between shadow-xs">
                   <div>
-                    <h5 className="text-xs font-bold text-neutral-800">{score.role}</h5>
-                    <span className="text-[9px] text-neutral-400 block mt-0.5">Completed</span>
+                    <h5 className="text-[10px] font-bold text-neutral-800 truncate max-w-[100px]">{score.role}</h5>
+                    <span className="text-[8px] text-neutral-400 block mt-0.5">Completed</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                    Score: {score.score}%
+                  <span className="text-[9px] font-mono font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    {score.score}%
                   </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 7. CALENDAR / SCHEDULE */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-[2.2rem] shadow-sm space-y-4">
+          {/* SCHEDULE */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-5 rounded-[2.2rem] shadow-sm space-y-3.5">
             <div className="flex justify-between items-center">
-              <h3 className="text-base font-extrabold text-neutral-950">Schedule</h3>
-              <CalendarIcon size={14} className="text-neutral-400" />
+              <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Schedule</h3>
+              <CalendarIcon size={12} className="text-neutral-400" />
             </div>
 
-            <div className="space-y-4 font-semibold">
+            <div className="space-y-3 font-semibold">
               {upcomingInterviews.length > 0 ? (
                 upcomingInterviews.map((int) => {
                   const d = new Date(int.scheduled_at);
@@ -519,51 +630,87 @@ export default function CandidateDashboard() {
                   const month = d.toLocaleString('default', { month: 'short' });
                   const timeRange = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                   return (
-                    <div key={int.id} className="flex gap-3">
-                      <div className="text-center w-8 text-[10px] font-mono text-neutral-400">
+                    <div key={int.id} className="flex gap-2.5">
+                      <div className="text-center w-7 text-[9px] font-mono text-neutral-400">
                         <span className="block font-black text-neutral-900">{day}</span> {month}
                       </div>
-                      <div className="flex-1 bg-white border border-neutral-100 p-3 rounded-2xl shadow-xs">
-                        <h5 className="text-xs font-black text-neutral-900 leading-none">{int.job?.title || 'Collaborative Coding'}</h5>
-                        <p className="text-[9px] text-neutral-400 mt-1 font-mono">{timeRange}</p>
+                      <div className="flex-1 bg-white border border-neutral-100 p-2.5 rounded-xl shadow-xs">
+                        <h5 className="text-[10px] font-black text-neutral-900 leading-none truncate">{int.job?.title || 'Coding Round'}</h5>
+                        <p className="text-[8px] text-neutral-400 mt-1 font-mono">{timeRange}</p>
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="text-neutral-400 text-center text-xs py-6 italic font-medium">No upcoming interviews or events scheduled.</div>
+                <div className="text-neutral-400 text-center text-xs py-4 italic font-medium">Empty schedule.</div>
               )}
             </div>
           </div>
 
-          {/* 6. RECENT ACTIVITY */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-[2.2rem] shadow-sm space-y-4">
-            <h3 className="text-base font-extrabold text-neutral-950">Recent Activity</h3>
-            <div className="space-y-3 font-semibold text-xs leading-relaxed text-neutral-700">
-              {activityList.map((act, i) => (
-                <div key={i} className="flex justify-between items-start gap-4">
-                  <p className="flex-1 text-neutral-600">{act.text}</p>
-                  <span className="text-[8px] font-bold text-neutral-400 font-mono shrink-0 uppercase">{act.date}</span>
+          {/* DOCUMENTS & RESUME */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-5 rounded-[2.2rem] shadow-sm space-y-3.5">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Documents</h3>
+              </div>
+              
+              <label className="p-1 text-orange-500 hover:text-white hover:bg-orange-500 rounded-full border border-orange-500 transition-all cursor-pointer">
+                <Upload size={12} />
+                <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={handleUploadDocument} className="hidden" />
+              </label>
+            </div>
+
+            <div className="space-y-2.5">
+              {profile.documents.map((doc, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2.5 bg-white border border-neutral-100 rounded-xl shadow-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText size={14} className="text-neutral-400 shrink-0" />
+                    <span className="text-[10px] font-bold text-neutral-800 truncate max-w-[120px]" title={doc.name}>{doc.name}</span>
+                  </div>
+                  
+                  <button 
+                    onClick={() => handleDeleteDocument(doc.name)}
+                    className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                    title="Delete document"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+              {profile.documents.length === 0 && (
+                <div className="text-neutral-400 text-center text-xs py-4 italic font-medium">No documents.</div>
+              )}
+            </div>
+          </div>
+
+          {/* RECENT ACTIVITY */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-5 rounded-[2.2rem] shadow-sm space-y-3.5">
+            <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Recent Activity</h3>
+            <div className="space-y-2.5 font-semibold text-[10px] leading-relaxed text-neutral-750">
+              {activityList.slice(0, 3).map((act, i) => (
+                <div key={i} className="flex justify-between items-start gap-2">
+                  <p className="flex-1 text-neutral-600 truncate">{act.text}</p>
+                  <span className="text-[7px] font-bold text-neutral-400 font-mono shrink-0 uppercase">{act.date}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 8. NOTIFICATIONS */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-6 rounded-[2.2rem] shadow-sm space-y-4">
+          {/* NOTIFICATIONS */}
+          <div className="bg-white/70 backdrop-blur-xl border border-white/50 p-5 rounded-[2.2rem] shadow-sm space-y-3.5">
             <div className="flex justify-between items-center">
-              <h3 className="text-base font-extrabold text-neutral-950">Notifications</h3>
-              <Bell size={14} className="text-neutral-400" />
+              <h3 className="text-xs font-black text-neutral-950 uppercase tracking-wider">Notifications</h3>
+              <Bell size={12} className="text-neutral-400" />
             </div>
             
-            <div className="space-y-3">
-              {notificationsList.map(notif => (
-                <div key={notif.id} className="p-3.5 bg-white border border-neutral-100 rounded-2xl shadow-xs text-xs font-semibold text-neutral-700 flex gap-2">
+            <div className="space-y-2.5">
+              {notificationsList.slice(0, 2).map(notif => (
+                <div key={notif.id} className="p-3 bg-white border border-neutral-100 rounded-xl shadow-xs text-[10px] font-semibold text-neutral-700 flex gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
                     notif.type === 'offer' ? 'bg-emerald-500' :
                     notif.type === 'rejection' ? 'bg-red-500' : 'bg-orange-500'
                   }`}></div>
-                  <p className="leading-relaxed">{notif.message}</p>
+                  <p className="leading-relaxed truncate max-w-[150px]" title={notif.message}>{notif.message}</p>
                 </div>
               ))}
             </div>
@@ -680,3 +827,4 @@ export default function CandidateDashboard() {
     </div>
   );
 }
+
