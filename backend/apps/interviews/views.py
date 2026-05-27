@@ -12,7 +12,17 @@ class InterviewSessionListCreateView(generics.ListCreateAPIView):
         company = self.request.company
         if not company:
             return InterviewSession.objects.none()
-        return InterviewSession.objects.filter(company=company).order_by('-scheduled_at')
+        
+        queryset = InterviewSession.objects.filter(company=company)
+        
+        # Filter by creator/recruiter if user is a recruiter and not a company admin
+        from companies.models import RecruiterProfile, CompanyAdminProfile
+        is_admin = CompanyAdminProfile.objects.filter(user=self.request.user).exists()
+        is_recruiter = RecruiterProfile.objects.filter(user=self.request.user).exists()
+        if is_recruiter and not is_admin:
+            queryset = queryset.filter(job__created_by=self.request.user)
+            
+        return queryset.order_by('-scheduled_at')
 
 class InterviewSessionDetailView(views.APIView):
     # AllowAny for get and patch so candidate and recruiter can access details / reschedule
