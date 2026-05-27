@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { pipelineStages } from '../../mock/mockData';
-import { ArrowLeft, Zap, Calendar, MessageSquare, CheckCircle2, Mail, Phone, Link as LinkIcon, Globe, Star, ClipboardList, FileText, Video, Sparkles } from 'lucide-react';
+import { ArrowLeft, Zap, Calendar, MessageSquare, CheckCircle2, Mail, Phone, Link as LinkIcon, Globe, Star, ClipboardList, FileText, Video, Sparkles, Loader2, X } from 'lucide-react';
 import { api } from '../../api/api';
 
 export default function CandidateProfile({ candidateId }) {
@@ -12,6 +12,11 @@ export default function CandidateProfile({ candidateId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduleError, setScheduleError] = useState('');
+  const [scheduling, setScheduling] = useState(false);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -116,6 +121,48 @@ export default function CandidateProfile({ candidateId }) {
     }
   };
 
+  const handleOpenSchedule = () => {
+    const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+    const yyyy = nextHour.getFullYear();
+    const mm = String(nextHour.getMonth() + 1).padStart(2, '0');
+    const dd = String(nextHour.getDate()).padStart(2, '0');
+    const hh = String(nextHour.getHours()).padStart(2, '0');
+    const min = String(nextHour.getMinutes()).padStart(2, '0');
+
+    setScheduleDate(`${yyyy}-${mm}-${dd}`);
+    setScheduleTime(`${hh}:${min}`);
+    setScheduleError('');
+    setShowScheduleModal(true);
+  };
+
+  const handleScheduleInterview = async (e) => {
+    e.preventDefault();
+    if (!scheduleDate || !scheduleTime) {
+      setScheduleError('Please select date and time.');
+      return;
+    }
+
+    setScheduling(true);
+    setScheduleError('');
+
+    try {
+      const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+      await api.interviews.schedule(app.candidate.id, app.job, scheduledAt);
+
+      if (app.current_stage !== 'Interview') {
+        await api.candidates.updateStage(candidateId, 'Interview');
+      }
+
+      setShowScheduleModal(false);
+      showToast('Interview scheduled successfully!');
+      fetchCandidate();
+    } catch (err) {
+      setScheduleError(err.message || 'Failed to schedule interview.');
+    } finally {
+      setScheduling(false);
+    }
+  };
+
   return (
     <div className="space-y-8 select-none">
       
@@ -168,12 +215,20 @@ export default function CandidateProfile({ candidateId }) {
 
         </div>
 
-        {/* ATS score indicator */}
-        <div className="self-center md:self-auto text-center md:text-right bg-neutral-950 text-white rounded-3xl p-5 border border-neutral-900 shadow-lg min-w-[120px]">
-          <div className="text-3xl font-black font-mono tracking-tight text-white">{candidate.matchScore}%</div>
-          <div className="text-[10px] text-orange-500 font-extrabold uppercase tracking-widest flex items-center gap-1.5 justify-center md:justify-end mt-1.5">
-            <Zap size={11} className="fill-orange-500 text-orange-500 animate-pulse" /> ATS Match
+        <div className="self-center md:self-auto flex flex-col gap-3 w-full md:w-auto">
+          {/* ATS score indicator */}
+          <div className="text-center md:text-right bg-neutral-950 text-white rounded-3xl p-5 border border-neutral-900 shadow-lg min-w-[120px]">
+            <div className="text-3xl font-black font-mono tracking-tight text-white">{candidate.matchScore}%</div>
+            <div className="text-[10px] text-orange-500 font-extrabold uppercase tracking-widest flex items-center gap-1.5 justify-center md:justify-end mt-1.5">
+              <Zap size={11} className="fill-orange-500 text-orange-500 animate-pulse" /> ATS Match
+            </div>
           </div>
+          <button
+            onClick={handleOpenSchedule}
+            className="px-5 py-2.5 border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white bg-transparent rounded-full text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+          >
+            <Video size={14} /> Schedule Interview
+          </button>
         </div>
       </div>
 
@@ -369,15 +424,90 @@ export default function CandidateProfile({ candidateId }) {
         </div>
       )}
 
-    </div>
-  );
-}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-neutral-200 rounded-[2.2rem] shadow-2xl w-full max-w-md overflow-hidden relative">
+            {scheduling && (
+              <div className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center z-30 space-y-3">
+                <Loader2 className="animate-spin text-orange-500" size={34} />
+                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Scheduling session...</span>
+              </div>
+            )}
 
-// Inline fallback loader component to prevent compile issues
-function Loader2({ className, size }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
+            <div className="flex justify-between items-center p-6 border-b border-neutral-100">
+              <h2 className="text-base font-extrabold text-neutral-950 flex items-center gap-1.5">
+                <Calendar size={16} className="text-orange-500" />
+                Schedule Interview
+              </h2>
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                disabled={scheduling}
+                className="w-8 h-8 rounded-full bg-neutral-50 hover:bg-neutral-100 flex items-center justify-center text-neutral-400 hover:text-neutral-950 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleScheduleInterview} className="p-6 space-y-4">
+              <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
+                <p className="text-xs font-bold text-neutral-900">{candidate.name}</p>
+                <p className="text-[10px] font-semibold text-neutral-400 mt-1">{candidate.role} • {candidate.email}</p>
+              </div>
+
+              {scheduleError && (
+                <div className="p-3 bg-red-50/50 border border-red-200 text-red-500 rounded-2xl text-[10px] font-bold leading-relaxed">
+                  {scheduleError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Date</label>
+                  <input
+                    type="date"
+                    required
+                    min={new Date().toISOString().split('T')[0]}
+                    value={scheduleDate}
+                    onChange={e => setScheduleDate(e.target.value)}
+                    disabled={scheduling}
+                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Time</label>
+                  <input
+                    type="time"
+                    required
+                    value={scheduleTime}
+                    onChange={e => setScheduleTime(e.target.value)}
+                    disabled={scheduling}
+                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  disabled={scheduling}
+                  className="px-4 py-2 border border-neutral-200 hover:border-neutral-950 rounded-full text-xs font-bold text-neutral-500 hover:text-neutral-950 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={scheduling}
+                  className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Video size={13} /> Schedule
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 }
