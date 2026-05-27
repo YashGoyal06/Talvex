@@ -396,39 +396,6 @@ export default function CandidateInterviews() {
         {/* Right column: Actions, notifications, and metrics (xl:col-span-4) */}
         <div className="xl:col-span-4 space-y-6">
           
-          {/* Quick actions panel */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] shadow-xs p-6 space-y-5">
-            <h3 className="text-sm font-black text-neutral-950 tracking-tight">Quick Actions</h3>
-            <div className="space-y-3">
-              <button
-                onClick={handleSendReminders}
-                className="w-full text-left p-4 bg-white hover:bg-neutral-50 border border-neutral-100/60 rounded-2xl text-xs font-bold text-neutral-600 hover:text-neutral-950 flex items-center gap-3 transition-all hover:translate-x-0.5 shadow-xs shadow-neutral-100/30 cursor-pointer"
-              >
-                <div className="bg-neutral-50 p-2.5 rounded-xl text-neutral-450 hover:text-orange-500 transition-colors"><Bell size={14} /></div>
-                Request Recruiter Sync
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive Reminders & Notifications Widget */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] shadow-xs p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-black text-neutral-950 tracking-tight">Notifications & Reminders</h3>
-              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-            </div>
-            
-            <div className="space-y-3.5">
-              <div className="p-3.5 bg-orange-500/5 border border-orange-500/10 rounded-2xl text-xs text-neutral-700 leading-relaxed font-semibold">
-                <p className="text-orange-600 font-extrabold text-[9px] uppercase tracking-wider mb-1">⏰ Impending Interview</p>
-                Ensure your screen sharing permissions are enabled in your OS before entering any live coding loops.
-              </div>
-              <div className="p-3.5 bg-neutral-50 border border-neutral-200/50 rounded-2xl text-xs text-neutral-500 leading-relaxed font-semibold font-mono">
-                <p className="text-neutral-800 font-extrabold text-[9px] uppercase tracking-wider mb-1">📅 Auto Calendar Sync</p>
-                Your schedule is automatically saved and matched against remote hiring manager timezones in real time.
-              </div>
-            </div>
-          </div>
-
           {/* Overview stats panel */}
           <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] shadow-xs p-6 space-y-5">
             <h3 className="text-sm font-black text-neutral-950 tracking-tight">Overview</h3>
