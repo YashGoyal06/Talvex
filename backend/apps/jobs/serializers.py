@@ -24,6 +24,7 @@ class JobSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         company = self.context['request'].company
+        user = self.context['request'].user
         
         # Add default pipeline stages if not specified
         if not validated_data.get('pipeline_stages'):
@@ -39,4 +40,4 @@ class JobSerializer(serializers.ModelSerializer):
                 "cover_letter": {"required": False, "type": "textarea"}
             }
             
-        return Job.objects.create(company=company, **validated_data)
+        return Job.objects.create(company=company, created_by=user, **validated_data)

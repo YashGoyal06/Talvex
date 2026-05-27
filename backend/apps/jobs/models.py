@@ -15,6 +15,13 @@ class Job(TenantModel):
     pipeline_stages = models.JSONField(default=list, blank=True) # custom pipeline stages
     created_at = models.DateTimeField(default=timezone.now)
     deadline = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_jobs'
+    )
 
     @property
     def days_open(self):

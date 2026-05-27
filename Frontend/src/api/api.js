@@ -1,5 +1,30 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000/ws';
+
+const getWsBaseUrl = () => {
+  const envWs = import.meta.env.VITE_WS_BASE_URL;
+  if (envWs) return envWs;
+  
+  if (BASE_URL && BASE_URL.startsWith('http')) {
+    try {
+      const url = new URL(BASE_URL);
+      const proto = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      let path = url.pathname;
+      if (path.endsWith('/api')) {
+        path = path.slice(0, -4) + '/ws';
+      } else if (path.endsWith('/api/')) {
+        path = path.slice(0, -5) + '/ws';
+      } else {
+        path = path + (path.endsWith('/') ? 'ws' : '/ws');
+      }
+      return `${proto}//${url.host}${path}`;
+    } catch (e) {
+      console.error("Failed to parse VITE_API_BASE_URL for WebSockets:", e);
+    }
+  }
+  return 'ws://localhost:8000/ws';
+};
+
+const WS_BASE_URL = getWsBaseUrl();
 
 // Helper to get auth headers
 function getAuthHeaders() {

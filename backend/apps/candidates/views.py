@@ -38,6 +38,13 @@ class CandidatePipelineListView(generics.ListAPIView):
             
         queryset = Application.objects.filter(company=company).order_by('-created_at')
         
+        # Filter for recruiters who are not admins
+        from companies.models import RecruiterProfile, CompanyAdminProfile
+        is_admin = CompanyAdminProfile.objects.filter(user=self.request.user).exists()
+        is_recruiter = RecruiterProfile.objects.filter(user=self.request.user).exists()
+        if is_recruiter and not is_admin:
+            queryset = queryset.filter(job__created_by=self.request.user)
+            
         # Filter by job
         job_id = self.request.query_params.get('job_id')
         if job_id:

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Video, Share, MoreHorizontal, PhoneMissed, MessageSquare, PenTool, LayoutTemplate, MicOff, VideoOff, Monitor, Users, Send, ChevronRight, Eraser, Star, Sparkles, Upload, Globe, ChevronDown, Edit3, Check, X, FileText, Code2 } from 'lucide-react';
+import { Mic, Video, PhoneMissed, MessageSquare, PenTool, MicOff, VideoOff, Send, Eraser, Globe, ChevronDown, Edit3, Check, X, FileText, Code2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api/api';
 
@@ -52,7 +52,7 @@ export default function LiveInterviewRoom() {
   // Media states
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
-  const [screenSharing, setScreenSharing] = useState(false);
+
 
   // Dynamic Session Details
   const [session, setSession] = useState(null);
@@ -92,6 +92,19 @@ export default function LiveInterviewRoom() {
     fit: 5
   });
   const [recommendation, setRecommendation] = useState('Yes');
+
+  // Focus Mode (Anti-Cheating)
+  const [tabSwitches, setTabSwitches] = useState(0);
+  const [focusWarning, setFocusWarning] = useState(false);
+
+  // Console Drawer states for Run/Submit
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const [consoleTab, setConsoleTab] = useState('results'); // 'results' or 'stdin'
+  const [customStdin, setCustomStdin] = useState('');
+  const [running, setRunning] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [consoleOutput, setConsoleOutput] = useState(null); // { status, stdout, stderr, time }
+  const [submitResult, setSubmitResult] = useState(null); // { passed, total }
 
   // 1. Load Session & Problems on mount
   useEffect(() => {
@@ -187,6 +200,53 @@ export default function LiveInterviewRoom() {
     }
   }, [micOn, socket]);
 
+  // Cheating Prevention / Focus Mode
+  useEffect(() => {
+    if (isRecruiter) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitches(prev => {
+          const newCount = prev + 1;
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+              type: 'chat_message',
+              from: 'System',
+              text: `⚠️ Candidate switched tabs/minimized window (Warning #${newCount})`,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }));
+          }
+          setFocusWarning(true);
+          return newCount;
+        });
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setTabSwitches(prev => {
+        const newCount = prev + 1;
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'chat_message',
+            from: 'System',
+            text: `⚠️ Candidate moved focus away from the test window (Warning #${newCount})`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }));
+        }
+        setFocusWarning(true);
+        return newCount;
+      });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [isRecruiter, socket]);
+
   // 3. Setup WebSocket Connection & WebRTC Signaling
   useEffect(() => {
     if (!roomId) return;
@@ -217,7 +277,13 @@ export default function LiveInterviewRoom() {
       }
 
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' }
+        ]
       });
 
       pc.onicecandidate = handleIceCandidate;
@@ -343,6 +409,22 @@ export default function LiveInterviewRoom() {
         drawOnCanvasLocal(data.x0, data.y0, data.x1, data.y1, data.color);
       } else if (data.type === 'whiteboard_clear') {
         clearCanvasLocal();
+      } else if (data.type === 'peer_code_run') {
+        if (data.status === 'Running...' || data.status === 'Evaluating...') {
+          setRunning(data.status === 'Running...');
+          setSubmitting(data.status === 'Evaluating...');
+          setConsoleOpen(true);
+          setConsoleTab('results');
+          setConsoleOutput({ status: data.status, stdout: '', stderr: '', time: 0 });
+          setSubmitResult(null);
+        } else {
+          setRunning(false);
+          setSubmitting(false);
+          setConsoleOpen(data.consoleOpen || false);
+          if (data.consoleTab) setConsoleTab(data.consoleTab);
+          setConsoleOutput(data.consoleOutput || null);
+          setSubmitResult(data.submitResult || null);
+        }
       }
     };
 
@@ -381,14 +463,13 @@ export default function LiveInterviewRoom() {
   };
 
   const startDrawing = (e) => {
-    if (isRecruiter) return; // Recruiter read-only
     const coords = getCanvasPos(e);
     lastCoords.current = coords;
     setIsDrawing(true);
   };
 
   const draw = (e) => {
-    if (!isDrawing || isRecruiter) return;
+    if (!isDrawing) return;
     const coords = getCanvasPos(e);
     const x0 = lastCoords.current.x;
     const y0 = lastCoords.current.y;
@@ -428,7 +509,6 @@ export default function LiveInterviewRoom() {
   };
 
   const clearCanvas = () => {
-    if (isRecruiter) return; // Recruiter read-only
     clearCanvasLocal();
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
@@ -586,6 +666,170 @@ export default function LiveInterviewRoom() {
   };
 
 
+  const handleRunCode = async () => {
+    if (isRecruiter) return;
+    setRunning(true);
+    setConsoleOpen(true);
+    setConsoleTab('results');
+    setConsoleOutput({ status: 'Running...', stdout: '', stderr: '', time: 0 });
+    
+    // Broadcast run event to recruiter
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'peer_code_run',
+        status: 'Running...'
+      }));
+    }
+
+    try {
+      const res = await api.assessments.executeCode(code, editorLanguage, customStdin);
+      setConsoleOutput(res);
+      
+      // Broadcast execution results to recruiter
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'peer_code_run',
+          status: res.status,
+          consoleOutput: res,
+          submitResult: null,
+          consoleOpen: true,
+          consoleTab: 'results'
+        }));
+      }
+    } catch (err) {
+      const errRes = { status: 'Execution Error', stdout: '', stderr: err.message || 'Failed to execute code.', time: 0 };
+      setConsoleOutput(errRes);
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'peer_code_run',
+          status: 'Execution Error',
+          consoleOutput: errRes,
+          submitResult: null,
+          consoleOpen: true,
+          consoleTab: 'results'
+        }));
+      }
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const handleSubmitCode = async () => {
+    if (isRecruiter) return;
+    if (!selectedProblem) return;
+    
+    setSubmitting(true);
+    setConsoleOpen(true);
+    setConsoleTab('results');
+    setConsoleOutput({ status: 'Evaluating solution...', stdout: '', stderr: '', time: 0 });
+    setSubmitResult(null);
+
+    // Broadcast submission event to recruiter
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'peer_code_run',
+        status: 'Evaluating...'
+      }));
+    }
+
+    const testCases = selectedProblem.test_cases || [];
+    if (testCases.length === 0) {
+      try {
+        const res = await api.assessments.executeCode(code, editorLanguage, '');
+        const outRes = {
+          status: 'Submitted',
+          stdout: res.stdout || 'Code executed successfully.',
+          stderr: res.stderr,
+          time: res.time
+        };
+        setConsoleOutput(outRes);
+        setSubmitResult({ passed: 1, total: 1 });
+        
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'peer_code_run',
+            status: 'Submitted',
+            consoleOutput: outRes,
+            submitResult: { passed: 1, total: 1 },
+            consoleOpen: true,
+            consoleTab: 'results'
+          }));
+        }
+      } catch (err) {
+        const errRes = { status: 'Execution Error', stdout: '', stderr: err.message, time: 0 };
+        setConsoleOutput(errRes);
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'peer_code_run',
+            status: 'Execution Error',
+            consoleOutput: errRes,
+            submitResult: null,
+            consoleOpen: true
+          }));
+        }
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    let passedCount = 0;
+    let failed = false;
+    let lastOutput = null;
+
+    try {
+      for (let i = 0; i < testCases.length; i++) {
+        const tc = testCases[i];
+        const res = await api.assessments.executeCode(code, editorLanguage, tc.input);
+        lastOutput = res;
+        
+        const cleanOut = (res.stdout || '').trim().replace(/\r\n/g, '\n');
+        const cleanExpected = (tc.expected_output || '').trim().replace(/\r\n/g, '\n');
+
+        if (res.success || cleanOut === cleanExpected) {
+          passedCount++;
+        } else {
+          failed = true;
+        }
+      }
+
+      const finalStatus = passedCount === testCases.length ? 'Accepted' : 'Wrong Answer';
+      const outputRes = {
+        status: finalStatus,
+        stdout: `Passed ${passedCount} / ${testCases.length} test cases.`,
+        stderr: lastOutput?.stderr || '',
+        time: lastOutput?.time || 0.1
+      };
+      setConsoleOutput(outputRes);
+      setSubmitResult({ passed: passedCount, total: testCases.length });
+
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'peer_code_run',
+          status: finalStatus,
+          consoleOutput: outputRes,
+          submitResult: { passed: passedCount, total: testCases.length },
+          consoleOpen: true,
+          consoleTab: 'results'
+        }));
+      }
+    } catch (err) {
+      const errRes = { status: 'Evaluation Failed', stdout: '', stderr: err.message, time: 0 };
+      setConsoleOutput(errRes);
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'peer_code_run',
+          status: 'Evaluation Failed',
+          consoleOutput: errRes,
+          submitResult: null,
+          consoleOpen: true
+        }));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Chat message send
   const sendChat = () => {
     if (!chatInput.trim()) return;
@@ -634,37 +878,37 @@ export default function LiveInterviewRoom() {
   const jobTitle = session?.job ? session.job.title : 'Live Interview';
 
   return (
-    <div className="h-screen w-full bg-neutral-50 flex flex-col text-xs text-neutral-500 overflow-hidden font-sans select-none animate-fade-in relative">
+    <div className="h-screen w-full bg-neutral-50 flex flex-col text-xs text-neutral-500 overflow-y-auto lg:overflow-hidden font-sans select-none relative">
       
       {/* ── TOP SECTION (Increased to 64vh height): The largest screen on the page, covers full width ── */}
-      <div className="h-[64vh] flex flex-col bg-white border-b border-neutral-200/80 shrink-0 shadow-sm">
+      <div className="min-h-[50vh] lg:h-[64vh] flex flex-col bg-white border-b border-neutral-200/80 shrink-0 shadow-sm">
         
         {/* Sleek Workspace Header */}
-        <header className="h-12 border-b border-neutral-200/80 flex items-center justify-between px-6 bg-white shrink-0 text-neutral-800 select-none">
-          <div className="flex items-center gap-3">
-            <img src="/talvax_logo_navbar.png" className="w-7 h-7 object-contain" alt="Talvex Logo" />
-            <span className="font-extrabold text-neutral-950 text-sm tracking-tight leading-none">Talvex Live</span>
-            <div className="h-3.5 w-[1px] bg-neutral-200 mx-1"></div>
-            <span className="text-[11px] font-bold text-neutral-500">{jobTitle} Workspace</span>
-            <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-[8px] font-black tracking-wider flex items-center gap-1 border border-orange-200 ml-2">
+        <header className="border-b border-neutral-200/80 flex flex-wrap items-center justify-between px-3 sm:px-6 py-2 sm:py-0 sm:h-12 bg-white shrink-0 text-neutral-800 select-none gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <img src="/talvax_logo_navbar.png" className="w-6 h-6 sm:w-7 sm:h-7 object-contain shrink-0" alt="Talvex Logo" />
+            <span className="font-extrabold text-neutral-950 text-xs sm:text-sm tracking-tight leading-none whitespace-nowrap">Talvex Live</span>
+            <div className="h-3.5 w-[1px] bg-neutral-200 mx-0.5 sm:mx-1 hidden sm:block"></div>
+            <span className="text-[10px] sm:text-[11px] font-bold text-neutral-500 hidden md:inline truncate max-w-[200px]">{jobTitle} Workspace</span>
+            <span className="bg-orange-100 text-orange-600 px-1.5 sm:px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-black tracking-wider flex items-center gap-1 border border-orange-200 ml-1 sm:ml-2 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
               LIVE
             </span>
           </div>
 
           {/* Dynamic tabs of workspace in header */}
-          <div className="flex items-center bg-white px-2 gap-1 h-full">
+          <div className="flex items-center bg-white gap-0.5 sm:gap-1 h-full order-last sm:order-none w-full sm:w-auto justify-center sm:justify-end">
             {['problem', 'code', 'whiteboard'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 h-full text-[10px] font-bold capitalize transition-all border-b-2 cursor-pointer ${
+                className={`px-2.5 sm:px-4 py-2 sm:py-0 sm:h-full text-[9px] sm:text-[10px] font-bold capitalize transition-all border-b-2 cursor-pointer ${
                   activeTab === tab 
                     ? 'border-orange-500 text-neutral-950 font-extrabold bg-neutral-50/50' 
                     : 'border-transparent text-neutral-500 hover:text-neutral-750'
                 }`}
               >
-                {tab === 'code' ? 'Code Editor' : tab === 'whiteboard' ? 'Whiteboard' : 'Problem Statement'}
+                {tab === 'code' ? 'Code' : tab === 'whiteboard' ? 'Board' : 'Problem'}
               </button>
             ))}
 
@@ -850,12 +1094,12 @@ export default function LiveInterviewRoom() {
           {activeTab === 'code' && (
             <div className="absolute inset-0 flex flex-col bg-white">
               {/* Code subheader */}
-              <div className="h-9 bg-neutral-50 border-b border-neutral-200/80 flex items-center px-4 shrink-0 justify-between">
-                <div className="flex items-center gap-3">
+              <div className="bg-neutral-50 border-b border-neutral-200/80 flex flex-wrap items-center px-2 sm:px-4 py-1.5 sm:py-0 sm:h-9 shrink-0 justify-between gap-1">
+                <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap min-w-0">
                   {/* Dynamic filename */}
-                  <div className="flex items-center text-orange-600 text-[9px] font-extrabold tracking-wider font-mono">
-                    <Code2 size={11} className="mr-1.5 text-orange-400"/>
-                    {selectedProblem ? `Q${problems.findIndex(p => p.id === selectedProblem.id) + 1}: ${selectedProblem.title}` : 'solution'}.{languageMeta[editorLanguage]?.ext || 'js'}
+                  <div className="flex items-center text-orange-600 text-[8px] sm:text-[9px] font-extrabold tracking-wider font-mono truncate max-w-[120px] sm:max-w-none">
+                    <Code2 size={11} className="mr-1 sm:mr-1.5 text-orange-400 shrink-0"/>
+                    <span className="truncate">{selectedProblem ? `Q${problems.findIndex(p => p.id === selectedProblem.id) + 1}: ${selectedProblem.title}` : 'solution'}.{languageMeta[editorLanguage]?.ext || 'js'}</span>
                   </div>
 
                   <div className="h-3.5 w-[1px] bg-neutral-200"></div>
@@ -922,8 +1166,8 @@ export default function LiveInterviewRoom() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 sm:gap-3">
+                  <div className="hidden sm:flex items-center gap-1.5">
                     <span className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-wider">Theme:</span>
                     <button
                       onClick={() => setEditorTheme(t => t === 'black' ? 'white' : 'black')}
@@ -932,7 +1176,7 @@ export default function LiveInterviewRoom() {
                       {editorTheme === 'black' ? 'Light Editor' : 'Dark Editor'}
                     </button>
                   </div>
-                  <span className="text-[9px] text-neutral-500 font-extrabold uppercase tracking-widest font-mono">
+                  <span className="text-[8px] sm:text-[9px] text-neutral-500 font-extrabold uppercase tracking-widest font-mono hidden md:inline">
                     {isRecruiter ? 'Recruiter View (Read-Only)' : 'Candidate Workspace'}
                   </span>
                 </div>
@@ -950,14 +1194,137 @@ export default function LiveInterviewRoom() {
                 placeholder="// Start writing your collaborative solution..."
               />
 
+              {/* Collapsible Console Drawer */}
+              {consoleOpen && (
+                <div className="h-[180px] border-t border-neutral-200 bg-neutral-50 flex flex-col shrink-0 text-[10px] font-mono">
+                  {/* Console Header Tabs */}
+                  <div className="h-8 border-b border-neutral-200/80 bg-white flex items-center justify-between px-4 shrink-0">
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => setConsoleTab('results')}
+                        className={`font-extrabold pb-0.5 transition-colors border-b-2 cursor-pointer ${
+                          consoleTab === 'results' ? 'border-orange-500 text-neutral-950' : 'border-transparent text-neutral-400'
+                        }`}
+                      >
+                        Test Results
+                      </button>
+                      <button
+                        onClick={() => setConsoleTab('stdin')}
+                        className={`font-extrabold pb-0.5 transition-colors border-b-2 cursor-pointer ${
+                          consoleTab === 'stdin' ? 'border-orange-500 text-neutral-950' : 'border-transparent text-neutral-400'
+                        }`}
+                      >
+                        Custom Stdin
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setConsoleOpen(false)}
+                      className="text-neutral-400 hover:text-neutral-700 font-bold cursor-pointer"
+                    >
+                      Hide Console [x]
+                    </button>
+                  </div>
+
+                  {/* Console Body */}
+                  <div className="flex-1 overflow-y-auto p-4 leading-normal select-text">
+                    {consoleTab === 'stdin' ? (
+                      <div className="h-full flex flex-col gap-1.5">
+                        <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-wider">Provide Standard Input (Stdin):</span>
+                        <textarea
+                          value={customStdin}
+                          onChange={e => setCustomStdin(e.target.value)}
+                          className="flex-1 bg-white border border-neutral-200 text-neutral-800 p-2.5 rounded-xl focus:outline-none focus:border-neutral-300 resize-none font-semibold font-mono text-[10px]"
+                          placeholder="Enter standard input values here..."
+                          readOnly={isRecruiter}
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {consoleOutput ? (
+                          <>
+                            <div className="flex items-center gap-2 pb-1.5 border-b border-neutral-200/50">
+                              <span className="text-neutral-400 font-bold">Status:</span>
+                              <span className={`font-black uppercase tracking-wider ${
+                                consoleOutput.status === 'Accepted' || consoleOutput.status === 'Executed' || consoleOutput.status === 'Submitted'
+                                  ? 'text-emerald-600'
+                                  : consoleOutput.status === 'Running...' || consoleOutput.status === 'Evaluating...'
+                                    ? 'text-orange-500 animate-pulse'
+                                    : 'text-red-500'
+                              }`}>{consoleOutput.status}</span>
+                              {submitResult && (
+                                <span className="ml-2 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold border border-emerald-100">
+                                  Passed {submitResult.passed} / {submitResult.total}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {consoleOutput.stdout && (
+                              <div className="space-y-1">
+                                <div className="text-[8px] text-neutral-400 font-black uppercase tracking-widest">Standard Output:</div>
+                                <pre className="bg-white p-2.5 rounded-xl border border-neutral-200/40 text-neutral-800 whitespace-pre-wrap max-h-[100px] overflow-y-auto font-semibold leading-relaxed">{consoleOutput.stdout}</pre>
+                              </div>
+                            )}
+
+                            {consoleOutput.stderr && (
+                              <div className="space-y-1">
+                                <div className="text-[8px] text-red-400 font-black uppercase tracking-widest">Error Logs (stderr):</div>
+                                <pre className="bg-red-50/50 p-2.5 rounded-xl border border-red-100 text-red-600 whitespace-pre-wrap max-h-[100px] overflow-y-auto font-semibold leading-relaxed">{consoleOutput.stderr}</pre>
+                              </div>
+                            )}
+
+                            {!consoleOutput.stdout && !consoleOutput.stderr && (
+                              <div className="text-neutral-400 italic">No output.</div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-neutral-400 italic py-2 text-center font-bold">Run or submit code to check console execution results here.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Footer toolbar inside IDE */}
-              <div className="h-9 bg-neutral-50 border-t border-neutral-200/80 flex items-center gap-2 px-4 shrink-0 justify-between">
+              <div className="bg-neutral-50 border-t border-neutral-200/80 flex flex-wrap items-center gap-2 px-2 sm:px-4 py-1.5 sm:py-0 sm:h-9 shrink-0 justify-between">
                 <div className="flex gap-2">
-                  {!isRecruiter && (
+                  {!isRecruiter ? (
                     <>
-                      <button className="text-[9px] font-extrabold border border-neutral-200 hover:bg-neutral-100 bg-white text-neutral-900 px-3.5 py-1 rounded-full transition-all cursor-pointer">▶ Run code</button>
-                      <button className="text-[9px] font-extrabold bg-neutral-950 hover:bg-neutral-850 text-white px-3.5 py-1 rounded-full transition-all shadow-sm cursor-pointer">Submit code</button>
+                      <button
+                        onClick={handleRunCode}
+                        disabled={running || submitting}
+                        className="text-[9px] font-extrabold border border-neutral-200 hover:bg-neutral-100 bg-white text-neutral-900 px-3.5 py-1 rounded-full transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {running ? 'Running...' : '▶ Run code'}
+                      </button>
+                      <button
+                        onClick={handleSubmitCode}
+                        disabled={running || submitting}
+                        className="text-[9px] font-extrabold bg-neutral-950 hover:bg-neutral-850 text-white px-3.5 py-1 rounded-full transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        {submitting ? 'Submitting...' : 'Submit code'}
+                      </button>
+                      
+                      {consoleOpen ? (
+                        <button
+                          onClick={() => setConsoleOpen(false)}
+                          className="text-[9px] font-extrabold text-neutral-500 hover:text-neutral-700 px-2.5 py-1 transition-all cursor-pointer"
+                        >
+                          Close Console
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setConsoleOpen(true); setConsoleTab('stdin'); }}
+                          className="text-[9px] font-extrabold text-neutral-500 hover:text-neutral-700 px-2.5 py-1 transition-all cursor-pointer"
+                        >
+                          Open Console
+                        </button>
+                      )}
                     </>
+                  ) : (
+                    <span className="text-[9px] font-bold text-neutral-400">
+                      {running ? 'Candidate is running code...' : submitting ? 'Candidate is submitting solution...' : 'Watching Candidate Workspace'}
+                    </span>
                   )}
                 </div>
                 <span className="text-[9px] font-bold text-neutral-400 font-mono">{languageMeta[editorLanguage]?.label || 'JavaScript'}</span>
@@ -969,31 +1336,27 @@ export default function LiveInterviewRoom() {
           {activeTab === 'whiteboard' && (
             <div className="absolute inset-0 bg-white flex flex-col overflow-hidden">
               <div className="absolute top-4 left-4 z-10 flex gap-2 bg-white/95 p-1.5 rounded-full border shadow-md backdrop-blur">
-                {!isRecruiter ? (
-                  <>
-                    {['#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b'].map(c => (
-                      <button 
-                        key={c} 
-                        onClick={() => setBrushColor(c)}
-                        className={`w-5 h-5 rounded-full border border-gray-300 hover:scale-110 transition-transform cursor-pointer ${brushColor === c ? 'ring-2 ring-orange-500 ring-offset-1' : ''}`} 
-                        style={{ background: c }} 
-                      />
-                    ))}
-                    <div className="w-[1px] bg-gray-200 h-5 mx-1"></div>
+                <>
+                  {['#000000', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b'].map(c => (
                     <button 
-                      onClick={clearCanvas} 
-                      className="px-3 py-1 text-[10px] bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-full flex items-center gap-1 text-neutral-700 transition-colors cursor-pointer font-bold"
-                    >
-                      <Eraser size={11} /> Clear Board
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-[10px] text-gray-500 font-bold px-3 py-1 uppercase tracking-wider">👁 Recruiter View (Read-Only)</span>
-                )}
+                      key={c} 
+                      onClick={() => setBrushColor(c)}
+                      className={`w-5 h-5 rounded-full border border-gray-300 hover:scale-110 transition-transform cursor-pointer ${brushColor === c ? 'ring-2 ring-orange-500 ring-offset-1' : ''}`} 
+                      style={{ background: c }} 
+                    />
+                  ))}
+                  <div className="w-[1px] bg-gray-200 h-5 mx-1"></div>
+                  <button 
+                    onClick={clearCanvas} 
+                    className="px-3 py-1 text-[10px] bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-full flex items-center gap-1 text-neutral-700 transition-colors cursor-pointer font-bold"
+                  >
+                    <Eraser size={11} /> Clear Board
+                  </button>
+                </>
               </div>
               <canvas
                 ref={canvasRef}
-                className={`flex-1 bg-white ${isRecruiter ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
+                className="flex-1 bg-white cursor-crosshair"
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
@@ -1010,16 +1373,16 @@ export default function LiveInterviewRoom() {
       </div>
 
       {/* ── BOTTOM SECTION (Reduced Height): Horizontal Split (Webcams on Left, Tools on Right) ── */}
-      <div className="flex-1 flex overflow-hidden w-full relative border-t border-neutral-200/80 bg-neutral-50/50">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden w-full relative border-t border-neutral-200/80 bg-neutral-50/50">
         
         {/* Left half: Webcams side-by-side (Takes up 62% width) */}
-        <div className="w-[62%] h-full flex flex-col p-4 justify-between relative bg-neutral-50/55">
+        <div className="w-full lg:w-[62%] h-[280px] sm:h-[380px] lg:h-full flex flex-col p-2 sm:p-4 justify-between relative bg-neutral-50/55 border-b lg:border-b-0 border-neutral-200">
           
           {/* Side-by-side webcams container (Only 2 screens, candidate & recruiter) */}
-          <div className="flex gap-4 w-full h-[calc(100%-1rem)] items-center">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full h-full lg:h-[calc(100%-1rem)] items-center">
             
             {/* Candidate webcam card */}
-            <div className="flex-1 h-full rounded-[1.8rem] overflow-hidden bg-neutral-900 border border-neutral-200 aspect-video relative shadow-md">
+            <div className="flex-1 w-full sm:w-auto h-full rounded-xl sm:rounded-[1.8rem] overflow-hidden bg-neutral-900 border border-neutral-200 aspect-video relative shadow-md">
               <video
                 ref={remoteVideoRef}
                 autoPlay
@@ -1049,7 +1412,7 @@ export default function LiveInterviewRoom() {
             </div>
 
             {/* Recruiter webcam card */}
-            <div className="flex-1 h-full rounded-[1.8rem] overflow-hidden bg-neutral-900 border border-neutral-200 aspect-video relative shadow-md">
+            <div className="flex-1 w-full sm:w-auto h-full rounded-xl sm:rounded-[1.8rem] overflow-hidden bg-neutral-900 border border-neutral-200 aspect-video relative shadow-md">
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -1082,7 +1445,7 @@ export default function LiveInterviewRoom() {
           </div>
 
           {/* Floating Controls pill overlay at bottom center of webcam panel */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-5 py-2.5 bg-white border border-neutral-200 rounded-full shadow-lg backdrop-blur z-20">
+          <div className="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-1.5 sm:py-2 bg-white border border-neutral-200 rounded-full shadow-lg backdrop-blur z-20">
             <button
               onClick={() => setMicOn(m => !m)}
               className={`p-2 rounded-full transition-all cursor-pointer ${
@@ -1103,16 +1466,6 @@ export default function LiveInterviewRoom() {
               {camOn ? <Video size={14} /> : <VideoOff size={14} />}
             </button>
 
-            <button
-              onClick={() => setScreenSharing(s => !s)}
-              className={`p-2 rounded-full transition-all cursor-pointer ${
-                screenSharing ? 'bg-orange-50 text-orange-600' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
-              }`}
-              title="Share Screen"
-            >
-              <Monitor size={14} />
-            </button>
-
             <div className="w-[1px] bg-neutral-200 h-5 mx-1"></div>
 
             <button
@@ -1127,7 +1480,7 @@ export default function LiveInterviewRoom() {
         </div>
 
         {/* Right half: Interview Tools (Chat, Notes, Scorecard) (Takes up 38% width) */}
-        <div className="w-[38%] h-full border-l border-neutral-200/80 flex flex-col bg-white shrink-0">
+        <div className="w-full lg:w-[38%] h-[400px] sm:h-[500px] lg:h-full border-t lg:border-t-0 lg:border-l border-neutral-200/80 flex flex-col bg-white shrink-0">
           
           {/* Tool Tabs Selector */}
           <div className="flex items-center gap-1.5 px-4 py-3 border-b border-neutral-200 bg-white shrink-0">
@@ -1291,6 +1644,32 @@ export default function LiveInterviewRoom() {
           </div>
 
         </div>
+
+        {/* Anti-Cheating Warning Overlay */}
+        {focusWarning && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 select-none animate-fade-in">
+            <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full border border-red-100 shadow-2xl text-center space-y-6">
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto ring-4 ring-red-500/10">
+                <X size={28} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-neutral-950 font-extrabold text-sm tracking-tight">Warning: Focus Lost</h3>
+                <p className="text-[11px] text-neutral-450 font-bold uppercase tracking-wider leading-relaxed">
+                  TAB SWITCHING / WINDOW BLUR DETECTED
+                </p>
+                <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+                  Please maintain active focus on the interview screen. Focus loss events are reported to the recruiter instantly.
+                </p>
+              </div>
+              <button
+                onClick={() => setFocusWarning(false)}
+                className="w-full py-3 bg-neutral-950 hover:bg-neutral-850 text-white font-extrabold rounded-full text-xs transition-all shadow-md cursor-pointer"
+              >
+                Acknowledge & Resume
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
 

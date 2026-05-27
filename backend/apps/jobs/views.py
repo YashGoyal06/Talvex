@@ -36,7 +36,13 @@ class JobListCreateView(generics.ListCreateAPIView):
                     company = recruiter_profile.company
 
         if company:
-            return Job.objects.filter(company=company).order_by('-created_at')
+            queryset = Job.objects.filter(company=company).order_by('-created_at')
+            from companies.models import RecruiterProfile, CompanyAdminProfile
+            is_admin = CompanyAdminProfile.objects.filter(user=self.request.user).exists()
+            is_recruiter = RecruiterProfile.objects.filter(user=self.request.user).exists()
+            if is_recruiter and not is_admin:
+                queryset = queryset.filter(created_by=self.request.user)
+            return queryset
         # Fallback for candidates/public to see active jobs
         return public_open_jobs().order_by('-created_at')
 
