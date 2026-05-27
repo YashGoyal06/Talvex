@@ -504,7 +504,7 @@ class InterviewImportCodeforcesView(views.APIView):
                             "difficulty": difficulty,
                             "description": desc,
                             "starter_code": {
-                                "javascript": f"// Codeforces problem: {prob_link}\nfunction solution(input) {\n  // Process input lines here\n}",
+                                "javascript": f"// Codeforces problem: {prob_link}\nfunction solution(input) {{\n  // Process input lines here\n}}",
                                 "python": f"# Codeforces problem: {prob_link}\ndef solution(input):\n    # Process input lines here\n    pass"
                             },
                             "test_cases": [
