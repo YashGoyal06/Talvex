@@ -131,6 +131,8 @@ import time
 import logging
 import re
 import random
+from html.parser import HTMLParser
+from html import unescape
 from django.conf import settings
 from rest_framework.parsers import MultiPartParser, FormParser
 from assessments.models import CodingQuestion
@@ -138,6 +140,220 @@ import jwt
 import pdfplumber
 
 logger = logging.getLogger(__name__)
+
+
+class CodeforcesProblemParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.in_statement = False
+        self.statement_depth = 0
+        self.current_section = None
+        self.current_section_depth = 0
+        self.title = ''
+        self.time_limit = ''
+        self.memory_limit = ''
+        self.statement_parts = []
+        self.input_parts = []
+        self.output_parts = []
+        self.sample_inputs = []
+        self.sample_outputs = []
+        self._capture_stack = []
+
+    def _has_class(self, attrs, class_name):
+        classes = ''
+        for key, value in attrs:
+            if key == 'class':
+                classes = value or ''
+                break
+        return class_name in classes.split()
+
+    def _start_capture(self, name):
+        self._capture_stack.append({
+            'name': name,
+            'depth': 1,
+            'parts': []
+        })
+
+    def _append_to_capture(self, text):
+        if self._capture_stack and text:
+            self._capture_stack[-1]['parts'].append(text)
+
+    def _finish_capture(self):
+        capture = self._capture_stack.pop()
+        text = self._normalize_text(''.join(capture['parts']))
+        name = capture['name']
+
+        if name == 'title':
+            self.title = text
+        elif name == 'time-limit':
+            self.time_limit = re.sub(r'^time limit per test\s*', '', text, flags=re.I)
+        elif name == 'memory-limit':
+            self.memory_limit = re.sub(r'^memory limit per test\s*', '', text, flags=re.I)
+        elif name == 'input':
+            text = re.sub(r'^input\s*\n?', '', text, flags=re.I).strip()
+            if text:
+                self.sample_inputs.append(text)
+        elif name == 'output':
+            text = re.sub(r'^output\s*\n?', '', text, flags=re.I).strip()
+            if text:
+                self.sample_outputs.append(text)
+
+    def _append_section_text(self, text):
+        if not self.in_statement or self._capture_stack:
+            return
+
+        if self.current_section == 'input-specification':
+            self.input_parts.append(text)
+        elif self.current_section == 'output-specification':
+            self.output_parts.append(text)
+        elif self.current_section not in ('sample-tests',):
+            self.statement_parts.append(text)
+
+    def handle_starttag(self, tag, attrs):
+        if self._capture_stack:
+            self._capture_stack[-1]['depth'] += 1
+            if tag in ('br', 'pre'):
+                self._append_to_capture('\n')
+            return
+
+        if self._has_class(attrs, 'problem-statement'):
+            self.in_statement = True
+            self.statement_depth = 1
+            return
+
+        if self.in_statement:
+            self.statement_depth += 1
+
+        section_names = [
+            'title',
+            'time-limit',
+            'memory-limit',
+            'input-specification',
+            'output-specification',
+            'sample-tests'
+        ]
+        for name in section_names:
+            if self._has_class(attrs, name):
+                self.current_section = name
+                self.current_section_depth = self.statement_depth
+                if name in ('title', 'time-limit', 'memory-limit'):
+                    self._start_capture(name)
+                return
+
+        if self.current_section == 'sample-tests':
+            if self._has_class(attrs, 'input'):
+                self._start_capture('input')
+            elif self._has_class(attrs, 'output'):
+                self._start_capture('output')
+
+        if tag in ('p', 'div') and self.in_statement:
+            self._append_section_text('\n')
+        elif tag == 'li' and self.in_statement:
+            self._append_section_text('\n- ')
+        elif tag == 'br' and self.in_statement:
+            self._append_section_text('\n')
+
+    def handle_endtag(self, tag):
+        if self._capture_stack:
+            if tag == 'pre':
+                self._append_to_capture('\n')
+            self._capture_stack[-1]['depth'] -= 1
+            if self._capture_stack[-1]['depth'] > 0:
+                return
+            self._finish_capture()
+
+        if self.current_section and self.statement_depth <= self.current_section_depth:
+            self.current_section = None
+            self.current_section_depth = 0
+
+        if self.in_statement:
+            self.statement_depth -= 1
+            if self.statement_depth <= 0:
+                self.in_statement = False
+
+    def handle_data(self, data):
+        text = unescape(data)
+        self._append_to_capture(text)
+        self._append_section_text(text)
+
+    def handle_entityref(self, name):
+        self.handle_data(f'&{name};')
+
+    def handle_charref(self, name):
+        self.handle_data(f'&#{name};')
+
+    def _normalize_text(self, text):
+        text = unescape(text).replace('\xa0', ' ')
+        text = re.sub(r'[ \t]+', ' ', text)
+        text = re.sub(r' *\n *', '\n', text)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+    def parsed(self):
+        statement = self._normalize_text(''.join(self.statement_parts))
+        input_spec = re.sub(
+            r'^input\s*\n?',
+            '',
+            self._normalize_text(''.join(self.input_parts)),
+            flags=re.I
+        ).strip()
+        output_spec = re.sub(
+            r'^output\s*\n?',
+            '',
+            self._normalize_text(''.join(self.output_parts)),
+            flags=re.I
+        ).strip()
+        samples = []
+        for sample_input, sample_output in zip(self.sample_inputs, self.sample_outputs):
+            if sample_input and sample_output:
+                samples.append({
+                    "input": sample_input,
+                    "expected_output": sample_output,
+                    "is_hidden": False
+                })
+
+        return {
+            "title": self.title,
+            "statement": statement,
+            "input_spec": input_spec,
+            "output_spec": output_spec,
+            "time_limit": self.time_limit,
+            "memory_limit": self.memory_limit,
+            "test_cases": samples,
+        }
+
+
+def fetch_codeforces_problem_details(problem_url, contest_id=None, problem_index=None):
+    urls = [problem_url]
+    if contest_id and problem_index:
+        contest_url = f"https://codeforces.com/contest/{contest_id}/problem/{problem_index}"
+        if contest_url not in urls:
+            urls.append(contest_url)
+
+    last_error = None
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; TalvexInterviewImporter/1.0)",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    for url in urls:
+        try:
+            response = requests.get(url, headers=headers, timeout=18)
+            response.raise_for_status()
+
+            parser = CodeforcesProblemParser()
+            parser.feed(response.text)
+            parsed = parser.parsed()
+            if parsed.get('statement'):
+                return parsed
+
+            last_error = "problem statement markup was not found"
+        except Exception as exc:
+            last_error = exc
+
+    if last_error:
+        logger.warning(f"Failed to parse Codeforces problem page {problem_url}: {last_error}")
+    return {}
 
 DEFAULT_CODING_QUESTIONS = [
     {
@@ -498,15 +714,42 @@ class InterviewImportCodeforcesView(views.APIView):
                         difficulty = 'Easy' if rating <= 1100 else 'Medium'
                         prob_link = f"https://codeforces.com/problemset/problem/{contest_id}/{index}"
                         tags = ", ".join(p.get('tags', []))
+                        details = fetch_codeforces_problem_details(prob_link, contest_id, index)
+                        statement = details.get('statement', '')
+                        input_spec = details.get('input_spec', '')
+                        output_spec = details.get('output_spec', '')
+                        sample_tests = details.get('test_cases') or []
+                        time_limit = details.get('time_limit', '')
+                        memory_limit = details.get('memory_limit', '')
                         
-                        desc = (
-                            f"Codeforces Problem {contest_id}{index} - {name}\n"
-                            f"Link: {prob_link}\n"
-                            f"Difficulty Rating: {rating}\n"
-                            f"Tags: {tags}\n\n"
-                            f"Please click the link above to view the problem constraints, input/output requirements, and example test cases.\n"
-                            f"Write a solution program that processes input correctly."
-                        )
+                        metadata_lines = [
+                            f"Codeforces Problem {contest_id}{index} - {name}",
+                            f"Link: {prob_link}",
+                            f"Difficulty Rating: {rating}",
+                        ]
+                        if tags:
+                            metadata_lines.append(f"Tags: {tags}")
+                        if time_limit:
+                            metadata_lines.append(f"Time Limit: {time_limit}")
+                        if memory_limit:
+                            metadata_lines.append(f"Memory Limit: {memory_limit}")
+
+                        if statement:
+                            desc_sections = [
+                                "\n".join(metadata_lines),
+                                "Problem Statement:\n" + statement
+                            ]
+                            if input_spec:
+                                desc_sections.append("Input:\n" + input_spec)
+                            if output_spec:
+                                desc_sections.append("Output:\n" + output_spec)
+                            desc = "\n\n".join(desc_sections)
+                        else:
+                            desc = (
+                                f"{chr(10).join(metadata_lines)}\n\n"
+                                f"Unable to fetch the full statement automatically. Please open the Codeforces link above for the complete problem.\n"
+                                f"Write a solution program that processes standard input correctly."
+                            )
 
                         imported_questions.append({
                             "id": idx + 1,
@@ -517,7 +760,7 @@ class InterviewImportCodeforcesView(views.APIView):
                                 "javascript": f"// Codeforces problem: {prob_link}\nfunction solution(input) {{\n  // Process input lines here\n}}",
                                 "python": f"# Codeforces problem: {prob_link}\ndef solution(input):\n    # Process input lines here\n    pass"
                             },
-                            "test_cases": [
+                            "test_cases": sample_tests or [
                                 {"input": "1", "expected_output": "1", "is_hidden": False}
                             ]
                         })
@@ -529,5 +772,3 @@ class InterviewImportCodeforcesView(views.APIView):
             logger.error(f"Codeforces import failed: {e}")
 
         return Response({"detail": "Failed to fetch from Codeforces API. Please try again later."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
