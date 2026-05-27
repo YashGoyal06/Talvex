@@ -218,10 +218,86 @@ export default function AssessmentRoom() {
     return 'text-red-600';
   };
 
+  const executeViaPiston = async (code, language, stdin = '') => {
+    const languageMap = {
+      python: 'python',
+      javascript: 'javascript',
+      go: 'go',
+      'c++': 'cpp'
+    };
+
+    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language: languageMap[language] || language,
+        version: '*',
+        files: [{ content: code }],
+        stdin
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Piston execution failed with HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const compile = data.compile || {};
+    const run = data.run || {};
+    const stderr = compile.stderr || compile.output || run.stderr || '';
+    const stdout = run.stdout || '';
+    const hasError = Boolean(stderr) || (typeof run.code === 'number' && run.code !== 0);
+
+    return {
+      success: !hasError,
+      status: hasError ? 'Runtime Error' : 'Executed',
+      stdout,
+      stderr,
+      time: 0.1,
+      memory: 1000
+    };
+  };
+
+  const executeJavaScriptInBrowser = (code, stdin = '') => {
+    const output = [];
+    const errors = [];
+    const inputLines = stdin.split(/\r?\n/);
+    let inputIndex = 0;
+    const input = () => inputLines[inputIndex++] ?? '';
+    const localConsole = {
+      log: (...args) => output.push(args.map(String).join(' ')),
+      error: (...args) => errors.push(args.map(String).join(' ')),
+      warn: (...args) => errors.push(args.map(String).join(' '))
+    };
+
+    try {
+      Function('input', 'console', code)(input, localConsole);
+      return {
+        success: errors.length === 0,
+        status: errors.length ? 'Executed With Warnings' : 'Executed',
+        stdout: output.join('\n'),
+        stderr: errors.join('\n'),
+        time: 0.05,
+        memory: 0
+      };
+    } catch (err) {
+      return {
+        success: false,
+        status: 'Runtime Error',
+        stdout: output.join('\n'),
+        stderr: err.message || String(err),
+        time: 0.05,
+        memory: 0
+      };
+    }
+  };
+
   const handleRunCode = async () => {
     setRunning(true);
     setConsoleTab('results');
     setConsoleOutput({ status: 'Running...', stdout: '', stderr: '', time: 0 });
+
+    const executionErrors = [];
 
     try {
       const res = await api.assessments.executeCode(
@@ -231,16 +307,33 @@ export default function AssessmentRoom() {
       );
 
       setConsoleOutput(res);
+      setRunning(false);
+      return;
     } catch (err) {
+      executionErrors.push(`Backend: ${err.message || 'Execution failed.'}`);
+    }
+
+    try {
+      const res = await executeViaPiston(codeContent, editorLanguage, customStdin);
+      setConsoleOutput(res);
+      setRunning(false);
+      return;
+    } catch (err) {
+      executionErrors.push(`Piston: ${err.message || 'Execution failed.'}`);
+    }
+
+    if (editorLanguage === 'javascript') {
+      setConsoleOutput(executeJavaScriptInBrowser(codeContent, customStdin));
+    } else {
       setConsoleOutput({
-        status: 'Compilation / Runtime Error',
+        status: 'Execution Service Error',
         stdout: '',
-        stderr: err.message || 'Execution failed.',
+        stderr: executionErrors.join('\n') || 'Execution failed.',
         time: 0
       });
-    } finally {
-      setRunning(false);
     }
+
+    setRunning(false);
   };
 
   // Submit Solution logic
