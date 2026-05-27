@@ -191,7 +191,7 @@ export default function LiveInterviewRoom() {
   useEffect(() => {
     if (!roomId) return;
 
-    const wsUrl = `ws://localhost:8000/ws/interview/${roomId}/`;
+    const wsUrl = api.getWebSocketUrl(roomId);
     const ws = new WebSocket(wsUrl);
 
     const handleIceCandidate = (event) => {
@@ -729,41 +729,61 @@ export default function LiveInterviewRoom() {
                   </div>
                 ) : (
                   /* ── Read-Only Problem View (both roles) ── */
-                  <>
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="text-lg font-extrabold text-neutral-950 tracking-tight">{selectedProblem.title}</h2>
-                      <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${
-                        selectedProblem.difficulty?.toLowerCase() === 'easy' 
-                          ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
-                          : selectedProblem.difficulty?.toLowerCase() === 'hard'
-                            ? 'bg-red-500/10 text-red-600 border border-red-500/20'
-                            : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
-                      }`}>
-                        {selectedProblem.difficulty}
-                      </span>
-                      {isRecruiter && (
-                        <button onClick={() => setIsEditingQuestion(true)} className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 text-neutral-500 rounded-full text-[9px] font-bold hover:bg-neutral-50 hover:text-neutral-800 transition-all cursor-pointer shadow-sm">
-                          <Edit3 size={10}/> Edit
-                        </button>
-                      )}
-                    </div>
-                    
-                    <p className="text-neutral-500 text-xs leading-relaxed whitespace-pre-wrap font-medium">{selectedProblem.description}</p>
-                    
-                    {selectedProblem.test_cases && selectedProblem.test_cases.length > 0 && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
-                        {selectedProblem.test_cases.slice(0, 2).map((ex, i) => (
-                          <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
-                            <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Example {i + 1}</div>
-                            <div className="text-xs font-mono space-y-1">
-                              <div><span className="text-neutral-500">Input: </span><span className="text-orange-600">{ex.input}</span></div>
-                              <div><span className="text-neutral-600">Output: </span><span className="text-emerald-600">{ex.expected_output}</span></div>
-                            </div>
-                          </div>
-                        ))}
+                  <div className="space-y-8 divide-y divide-neutral-100">
+                    {!problems || problems.length === 0 ? (
+                      <div className="text-center py-10 text-neutral-400 text-xs font-bold">
+                        No questions in this interview room. Use the actions below to import questions.
                       </div>
+                    ) : (
+                      problems.map((prob, idx) => (
+                        <div key={prob.id || idx} className={`space-y-4 ${idx > 0 ? 'pt-6' : ''}`}>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm font-extrabold text-orange-600 font-mono">Q{idx + 1}.</span>
+                            <h2 className="text-base font-extrabold text-neutral-950 tracking-tight">{prob.title}</h2>
+                            <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${
+                              prob.difficulty?.toLowerCase() === 'easy' 
+                                ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
+                                : prob.difficulty?.toLowerCase() === 'hard'
+                                  ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                                  : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
+                            }`}>
+                              {prob.difficulty}
+                            </span>
+                            {isRecruiter && (
+                              <button
+                                onClick={() => {
+                                  setSelectedProblem(prob);
+                                  setEditTitle(prob.title || '');
+                                  setEditDiff(prob.difficulty || 'Medium');
+                                  setEditDesc(prob.description || '');
+                                  setIsEditingQuestion(true);
+                                }}
+                                className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 text-neutral-500 rounded-full text-[9px] font-bold hover:bg-neutral-50 hover:text-neutral-800 transition-all cursor-pointer shadow-sm"
+                              >
+                                <Edit3 size={10}/> Edit
+                              </button>
+                            )}
+                          </div>
+
+                          <p className="text-neutral-500 text-xs leading-relaxed whitespace-pre-wrap font-medium">{prob.description}</p>
+
+                          {prob.test_cases && prob.test_cases.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
+                              {prob.test_cases.slice(0, 2).map((ex, i) => (
+                                <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 space-y-2">
+                                  <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Example {i + 1}</div>
+                                  <div className="text-xs font-mono space-y-1">
+                                    <div><span className="text-neutral-500">Input: </span><span className="text-orange-600">{ex.input}</span></div>
+                                    <div><span className="text-neutral-600">Output: </span><span className="text-emerald-600">{ex.expected_output}</span></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
                     )}
-                  </>
+                  </div>
                 )}
 
                 {/* ── Recruiter Import Actions (always visible at bottom for recruiter) ── */}

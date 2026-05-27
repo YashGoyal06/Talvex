@@ -423,7 +423,7 @@ class InterviewImportPdfView(views.APIView):
         sanitized_questions = []
         for idx, q in enumerate(parsed_questions):
             sanitized_questions.append({
-                "id": idx + 1 + len(session.questions),
+                "id": idx + 1,
                 "title": q.get('title', f"Parsed Question {idx+1}"),
                 "difficulty": q.get('difficulty', 'Medium'),
                 "description": q.get('description', 'Solve the problem.'),
@@ -436,7 +436,7 @@ class InterviewImportPdfView(views.APIView):
                 ])
             })
 
-        session.questions = list(session.questions) + sanitized_questions
+        session.questions = sanitized_questions
         session.save()
 
         return Response({
@@ -499,7 +499,7 @@ class InterviewImportCodeforcesView(views.APIView):
                         )
 
                         imported_questions.append({
-                            "id": idx + 1 + len(session.questions),
+                            "id": idx + 1,
                             "title": f"Codeforces: {name}",
                             "difficulty": difficulty,
                             "description": desc,
@@ -512,7 +512,7 @@ class InterviewImportCodeforcesView(views.APIView):
                             ]
                         })
 
-                    session.questions = list(session.questions) + imported_questions
+                    session.questions = imported_questions
                     session.save()
                     return Response(session.questions, status=status.HTTP_200_OK)
         except Exception as e:
