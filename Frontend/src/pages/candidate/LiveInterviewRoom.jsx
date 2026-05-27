@@ -1112,6 +1112,79 @@ export default function LiveInterviewRoom() {
   };
 
 
+  const hasRealExpectedOutput = (testCase) => {
+    if (!testCase || typeof testCase !== 'object') return false;
+    const input = String(testCase.input ?? '').trim();
+    const expected = String(testCase.expected_output ?? '').trim();
+    if (!expected) return false;
+
+    // Imports sometimes create this placeholder when real samples are unknown.
+    return !(input === '1' && expected === '1');
+  };
+
+  const normalizeJudgeOutput = (value) => {
+    const text = String(value ?? '').trim().replace(/\r\n/g, '\n');
+    if (!text) return '';
+
+    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+    const lastLine = lines[lines.length - 1] || text;
+
+    for (const candidate of [text, lastLine]) {
+      try {
+        return JSON.stringify(JSON.parse(candidate));
+      } catch {
+        // Fall back to plain output comparison below.
+      }
+    }
+
+    return lastLine.replace(/\s+/g, ' ');
+  };
+
+  const buildLiveTestExecution = (sourceCode, language, rawInput) => {
+    const lang = language.toLowerCase();
+    const input = String(rawInput ?? '').trim();
+
+    if (input && !input.includes('\n')) {
+      if (
+        lang === 'javascript' &&
+        /\bfunction\s+solution\s*\(|\b(?:const|let|var)\s+solution\s*=/.test(sourceCode)
+      ) {
+        return {
+          code: `${sourceCode}\n\nconst __talvexArgs = [${input}];\nconst __talvexResult = solution(...__talvexArgs);\nif (typeof __talvexResult === "undefined") {\n  console.log("");\n} else if (typeof __talvexResult === "string") {\n  console.log(__talvexResult);\n} else {\n  console.log(JSON.stringify(__talvexResult));\n}`,
+          stdin: ''
+        };
+      }
+
+      if (lang === 'python' && /\bdef\s+solution\s*\(/.test(sourceCode)) {
+        return {
+          code: `${sourceCode}\n\nimport json as __talvex_json\n__talvex_args = (${input},)\n__talvex_result = solution(*__talvex_args)\nif isinstance(__talvex_result, str):\n    print(__talvex_result)\nelse:\n    print(__talvex_json.dumps(__talvex_result))\n`,
+          stdin: ''
+        };
+      }
+    }
+
+    return {
+      code: sourceCode,
+      stdin: String(rawInput ?? '')
+    };
+  };
+
+  const isExecutionFailure = (result) => {
+    const statusText = String(result?.status ?? '').toLowerCase();
+    return (
+      statusText.includes('error') ||
+      statusText.includes('time limit') ||
+      statusText.includes('compilation') ||
+      statusText.includes('runtime')
+    );
+  };
+
+  const getRunInput = () => {
+    if (customStdin.trim()) return customStdin;
+    const sampleCase = (selectedProblem?.test_cases || []).find(hasRealExpectedOutput);
+    return sampleCase?.input ?? '';
+  };
+
   const handleRunCode = async () => {
     if (isRecruiter) return;
     setRunning(true);
@@ -1128,7 +1201,12 @@ export default function LiveInterviewRoom() {
     }
 
     try {
-      const res = await api.assessments.executeCode(code, editorLanguage, customStdin);
+      const execution = buildLiveTestExecution(code, editorLanguage, getRunInput());
+      const res = await api.assessments.executeCode(
+        execution.code,
+        editorLanguage,
+        execution.stdin
+      );
       setConsoleOutput(res);
       
       // Broadcast execution results to recruiter
@@ -1178,64 +1256,59 @@ export default function LiveInterviewRoom() {
       }));
     }
 
-    const testCases = selectedProblem.test_cases || [];
+    const testCases = (selectedProblem.test_cases || []).filter(hasRealExpectedOutput);
     if (testCases.length === 0) {
-      try {
-        const res = await api.assessments.executeCode(code, editorLanguage, '');
-        const outRes = {
-          status: 'Submitted',
-          stdout: res.stdout || 'Code executed successfully.',
-          stderr: res.stderr,
-          time: res.time
-        };
-        setConsoleOutput(outRes);
-        setSubmitResult({ passed: 1, total: 1 });
-        
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: 'peer_code_run',
-            status: 'Submitted',
-            consoleOutput: outRes,
-            submitResult: { passed: 1, total: 1 },
-            consoleOpen: true,
-            consoleTab: 'results'
-          }));
-        }
-      } catch (err) {
-        const errRes = { status: 'Execution Error', stdout: '', stderr: err.message, time: 0 };
-        setConsoleOutput(errRes);
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: 'peer_code_run',
-            status: 'Execution Error',
-            consoleOutput: errRes,
-            submitResult: null,
-            consoleOpen: true
-          }));
-        }
-      } finally {
-        setSubmitting(false);
+      const outRes = {
+        status: 'Submitted for Review',
+        stdout: 'No verified expected outputs are available for this question. Your code has been saved for recruiter review.',
+        stderr: '',
+        time: 0.1
+      };
+      setConsoleOutput(outRes);
+      setSubmitResult(null);
+
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'peer_code_run',
+          status: 'Submitted for Review',
+          consoleOutput: outRes,
+          submitResult: null,
+          consoleOpen: true,
+          consoleTab: 'results'
+        }));
       }
+
+      setSubmitting(false);
       return;
     }
 
     let passedCount = 0;
-    let failed = false;
     let lastOutput = null;
+    const failedDetails = [];
 
     try {
       for (let i = 0; i < testCases.length; i++) {
         const tc = testCases[i];
-        const res = await api.assessments.executeCode(code, editorLanguage, tc.input);
+        const expectedOutput = String(tc.expected_output ?? '');
+        const execution = buildLiveTestExecution(code, editorLanguage, tc.input);
+        const res = await api.assessments.executeCode(
+          execution.code,
+          editorLanguage,
+          execution.stdin,
+          expectedOutput
+        );
         lastOutput = res;
-        
-        const cleanOut = (res.stdout || '').trim().replace(/\r\n/g, '\n');
-        const cleanExpected = (tc.expected_output || '').trim().replace(/\r\n/g, '\n');
 
-        if (res.success || cleanOut === cleanExpected) {
+        const actual = normalizeJudgeOutput(res.stdout);
+        const expected = normalizeJudgeOutput(expectedOutput);
+        const passed = !isExecutionFailure(res) && actual === expected;
+
+        if (passed) {
           passedCount++;
         } else {
-          failed = true;
+          failedDetails.push(
+            `Test ${i + 1} failed\nInput: ${tc.input ?? ''}\nExpected: ${expectedOutput}\nGot: ${(res.stdout || '').trim() || '[no output]'}${res.stderr ? `\nError: ${res.stderr}` : ''}`
+          );
         }
       }
 
@@ -1243,7 +1316,7 @@ export default function LiveInterviewRoom() {
       const outputRes = {
         status: finalStatus,
         stdout: `Passed ${passedCount} / ${testCases.length} test cases.`,
-        stderr: lastOutput?.stderr || '',
+        stderr: failedDetails[0] || lastOutput?.stderr || '',
         time: lastOutput?.time || 0.1
       };
       setConsoleOutput(outputRes);

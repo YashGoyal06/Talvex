@@ -177,7 +177,7 @@ class ExecuteCodeView(views.APIView):
                 serializer.validated_data['code'],
                 serializer.validated_data['language'],
                 serializer.validated_data.get('stdin', ''),
-                ''
+                serializer.validated_data.get('expected_output', '')
             )
             return Response(result, status=status.HTTP_200_OK)
 

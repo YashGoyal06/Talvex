@@ -320,13 +320,14 @@ export const api = {
       });
     },
 
-    async executeCode(code, language, stdin = '') {
+    async executeCode(code, language, stdin = '', expectedOutput = '') {
       return request('/assessments/execute/', {
         method: 'POST',
         body: {
           code,
           language,
-          stdin
+          stdin,
+          expected_output: expectedOutput
         },
         skipAuth: true
       });

@@ -54,3 +54,4 @@ class ExecuteCodeSerializer(serializers.Serializer):
     code = serializers.CharField()
     language = serializers.CharField()
     stdin = serializers.CharField(required=False, allow_blank=True)
+    expected_output = serializers.CharField(required=False, allow_blank=True)
