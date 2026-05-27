@@ -79,9 +79,20 @@ export default function LiveInterviewRoom() {
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [webcamInitialized, setWebcamInitialized] = useState(false);
   const [remoteStreamActive, setRemoteStreamActive] = useState(false);
   const [remoteCamOn, setRemoteCamOn] = useState(true);
   const [remoteMicOn, setRemoteMicOn] = useState(true);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(err => {
+        console.warn("Autoplay failed/prevented: ", err);
+      });
+    }
+  }, [remoteStream]);
 
   // Ratings (Recruiter only)
   const [ratings, setRatings] = useState({
@@ -150,6 +161,7 @@ export default function LiveInterviewRoom() {
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           console.warn("Webcam/microphone access is not supported in this browser environment.");
+          setWebcamInitialized(true);
           return;
         }
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -166,6 +178,10 @@ export default function LiveInterviewRoom() {
         stream.getAudioTracks().forEach(track => { track.enabled = micOn; });
       } catch (err) {
         console.error("Error accessing camera/microphone:", err);
+      } finally {
+        if (active) {
+          setWebcamInitialized(true);
+        }
       }
     }
     startLocalWebcam();
@@ -269,7 +285,7 @@ export default function LiveInterviewRoom() {
 
   // 3. Setup WebSocket Connection & WebRTC Signaling
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !webcamInitialized) return;
 
     const wsUrl = api.getWebSocketUrl(roomId);
     const ws = new WebSocket(wsUrl);
@@ -285,8 +301,8 @@ export default function LiveInterviewRoom() {
 
     const handleTrack = (event) => {
       console.log("Received remote track:", event.streams);
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
+      if (event.streams[0]) {
+        setRemoteStream(event.streams[0]);
         setRemoteStreamActive(true);
       }
     };
@@ -497,7 +513,7 @@ export default function LiveInterviewRoom() {
         peerConnectionRef.current = null;
       }
     };
-  }, [roomId, userName]);
+  }, [roomId, userName, webcamInitialized]);
 
   // 3. Drawing whiteboard functions
   const getCanvasPos = (e) => {
