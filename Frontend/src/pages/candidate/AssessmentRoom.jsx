@@ -204,6 +204,31 @@ export default function AssessmentRoom() {
   };
 
   // Run Code logic
+  const getStatusColor = (status) => {
+    if (
+      status === 'Accepted' ||
+      status === 'Executed' ||
+      status === 'Manual Review' ||
+      status === 'Submitted for Review' ||
+      status?.startsWith('Graded: Passed')
+    ) {
+      return 'text-emerald-600';
+    }
+    if (status === 'Running...') return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getRunnableSampleCase = (question) => {
+    const visibleCases = question.test_cases?.filter(c => !c.is_hidden && c.expected_output?.toString().trim()) || [];
+    if (visibleCases.length === 1) {
+      const onlyCase = visibleCases[0];
+      if (onlyCase.input?.toString().trim() === '1' && onlyCase.expected_output?.toString().trim() === '1') {
+        return {};
+      }
+    }
+    return visibleCases[0] || {};
+  };
+
   const handleRunCode = async () => {
     const activeQ = assessment.questions[activeQIndex];
     setRunning(true);
@@ -211,8 +236,8 @@ export default function AssessmentRoom() {
     setConsoleOutput({ status: 'Running...', stdout: '', stderr: '', time: 0 });
 
     try {
-      // Find a non-hidden test case for expected output if candidate hasn't specified stdin
-      const sampleCase = activeQ.test_cases?.find(c => !c.is_hidden) || {};
+      // Verify only when a real sample expected output exists.
+      const sampleCase = getRunnableSampleCase(activeQ);
       const runStdin = customStdin || sampleCase.input || '';
       const runExpected = customStdin ? '' : (sampleCase.expected_output || '');
 
@@ -257,12 +282,21 @@ export default function AssessmentRoom() {
         [activeQ.id]: res
       }));
 
-      setConsoleOutput({
-        status: `Graded: ${res.status}`,
-        stdout: `Passed ${res.passed_cases} / ${res.total_cases} test cases.`,
-        stderr: res.details?.map(d => d.success ? null : d.stderr).filter(Boolean).join('\n') || '',
-        time: 0.1
-      });
+      if (res.requires_manual_review || res.status === 'Manual Review') {
+        setConsoleOutput({
+          status: 'Submitted for Review',
+          stdout: 'No verified expected outputs are available for this question. Your code has been saved for recruiter review.',
+          stderr: '',
+          time: 0.1
+        });
+      } else {
+        setConsoleOutput({
+          status: `Graded: ${res.status}`,
+          stdout: `Passed ${res.passed_cases} / ${res.total_cases} test cases.`,
+          stderr: res.details?.map(d => d.success ? null : d.stderr).filter(Boolean).join('\n') || '',
+          time: 0.1
+        });
+      }
     } catch (err) {
       setConsoleOutput({
         status: 'Submission Failed',
@@ -374,7 +408,7 @@ export default function AssessmentRoom() {
               <li>You have <strong className="text-neutral-950 font-black">{assessment?.duration_minutes} minutes</strong> to complete the coding round.</li>
               <li>This test contains <strong className="text-neutral-950 font-black">{assessment?.questions?.length} programming tasks</strong>.</li>
               <li>You can run your code as many times as needed using custom inputs.</li>
-              <li>Click <strong className="text-neutral-950 font-black">Submit Solution</strong> to run your program against hidden unit tests.</li>
+              <li>Click <strong className="text-neutral-950 font-black">Submit Solution</strong> to verify against available expected outputs, or save for recruiter review when outputs are unavailable.</li>
               <li>The timer starts once you click **Start Assessment**. Do not close the browser tab.</li>
             </ul>
           </div>
@@ -433,6 +467,7 @@ export default function AssessmentRoom() {
             {assessment.questions.map((q, idx) => {
               const qStatus = submitResult[q.id]?.status;
               const isPassed = qStatus === 'Passed';
+              const isManualReview = qStatus === 'Manual Review';
               
               return (
                 <button
@@ -443,6 +478,8 @@ export default function AssessmentRoom() {
                       ? 'bg-neutral-950 border-neutral-950 text-white font-bold'
                       : isPassed
                       ? 'bg-emerald-50 border-emerald-100 text-emerald-600 font-bold'
+                      : isManualReview
+                      ? 'bg-orange-50 border-orange-100 text-orange-600 font-bold'
                       : qStatus
                       ? 'bg-red-50 border-red-100 text-red-600 font-bold'
                       : 'bg-white border-neutral-200 text-neutral-500 hover:text-neutral-700'
@@ -594,9 +631,7 @@ export default function AssessmentRoom() {
                     <>
                       <div className="flex items-center gap-2 border-b border-neutral-200/50 pb-2">
                         <span className="text-neutral-400">Status:</span>
-                        <span className={`font-black uppercase ${
-                          consoleOutput.status === 'Accepted' || consoleOutput.status?.startsWith('Graded: Passed') ? 'text-emerald-600' : 'text-red-600'
-                        }`}>{consoleOutput.status}</span>
+                        <span className={`font-black uppercase ${getStatusColor(consoleOutput.status)}`}>{consoleOutput.status}</span>
                       </div>
                       
                       {consoleOutput.stdout && (
