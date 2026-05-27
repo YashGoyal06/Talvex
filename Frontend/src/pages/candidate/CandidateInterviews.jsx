@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, Video, Users, Link as LinkIcon, AlertCircle, 
-  X, Check, Bell, Plus, Sparkles, Star, Clock, Inbox, ArrowUpRight, Calendar
+  X, Check, Bell, Sparkles, Star, Clock, Inbox, ArrowUpRight, Calendar
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api/api';
@@ -9,7 +9,6 @@ import { api } from '../../api/api';
 export default function CandidateInterviews() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('upcoming');
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedInterview, setSelectedInterview] = useState(null);
   
@@ -21,10 +20,6 @@ export default function CandidateInterviews() {
   const [loading, setLoading] = useState(true);
 
   const [interviews, setInterviews] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [selectedAppKey, setSelectedAppKey] = useState(''); // "candidate_id:job_id"
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
 
   const userEmail = localStorage.getItem('userEmail') || '';
 
@@ -36,18 +31,8 @@ export default function CandidateInterviews() {
   const fetchInterviewsAndApplications = async () => {
     setLoading(true);
     try {
-      const [interviewsData, appsData] = await Promise.all([
-        api.interviews.myInterviews(userEmail),
-        api.candidates.myApplications(userEmail)
-      ]);
+      const interviewsData = await api.interviews.myInterviews(userEmail);
       setInterviews(interviewsData);
-      setApplications(appsData);
-      if (appsData.length > 0) {
-        const activeApp = appsData[0];
-        if (activeApp.candidate) {
-          setSelectedAppKey(`${activeApp.candidate.id}:${activeApp.job}`);
-        }
-      }
     } catch (err) {
       showToast('Failed to fetch interviews.', 'error');
     } finally {
@@ -69,25 +54,6 @@ export default function CandidateInterviews() {
 
   const handleSendReminders = () => {
     showToast('Reminder notification pinged to hiring team!');
-  };
-
-  const handleSchedule = async (e) => {
-    e.preventDefault();
-    if (!selectedAppKey || !date || !time) {
-      showToast('Please select an application and schedule window.', 'error');
-      return;
-    }
-
-    const [candidateId, jobId] = selectedAppKey.split(':');
-    try {
-      const scheduledAt = new Date(`${date}T${time}`).toISOString();
-      await api.interviews.schedule(candidateId, jobId, scheduledAt);
-      showToast('Interview assessment scheduled successfully!');
-      setShowScheduleModal(false);
-      fetchInterviewsAndApplications();
-    } catch (err) {
-      showToast(err.message || 'Failed to schedule interview.', 'error');
-    }
   };
 
   const handleOpenReschedule = (interview) => {
@@ -435,20 +401,6 @@ export default function CandidateInterviews() {
             <h3 className="text-sm font-black text-neutral-950 tracking-tight">Quick Actions</h3>
             <div className="space-y-3">
               <button
-                onClick={() => setShowScheduleModal(true)}
-                className="w-full text-left p-4 bg-white hover:bg-neutral-50 border border-neutral-100/60 rounded-2xl text-xs font-bold text-neutral-600 hover:text-neutral-950 flex items-center gap-3 transition-all hover:translate-x-0.5 shadow-xs shadow-neutral-100/30 cursor-pointer"
-              >
-                <div className="bg-orange-50 p-2.5 rounded-xl text-orange-500"><Plus size={14} /></div>
-                Schedule Mock / Actual
-              </button>
-              <Link
-                to="/candidate/interview/adhoc"
-                className="w-full text-left p-4 bg-white hover:bg-neutral-50 border border-neutral-100/60 rounded-2xl text-xs font-bold text-neutral-600 hover:text-neutral-950 flex items-center gap-3 transition-all hover:translate-x-0.5 shadow-xs shadow-neutral-100/30 block"
-              >
-                <div className="bg-neutral-950 p-2.5 rounded-xl text-white"><Video size={14} /></div>
-                Start Ad-hoc Practice
-              </Link>
-              <button
                 onClick={handleSendReminders}
                 className="w-full text-left p-4 bg-white hover:bg-neutral-50 border border-neutral-100/60 rounded-2xl text-xs font-bold text-neutral-600 hover:text-neutral-950 flex items-center gap-3 transition-all hover:translate-x-0.5 shadow-xs shadow-neutral-100/30 cursor-pointer"
               >
@@ -469,10 +421,6 @@ export default function CandidateInterviews() {
               <div className="p-3.5 bg-orange-500/5 border border-orange-500/10 rounded-2xl text-xs text-neutral-700 leading-relaxed font-semibold">
                 <p className="text-orange-600 font-extrabold text-[9px] uppercase tracking-wider mb-1">⏰ Impending Interview</p>
                 Ensure your screen sharing permissions are enabled in your OS before entering any live coding loops.
-              </div>
-              <div className="p-3.5 bg-neutral-50 border border-neutral-200/50 rounded-2xl text-xs text-neutral-500 leading-relaxed font-semibold">
-                <p className="text-neutral-800 font-extrabold text-[9px] uppercase tracking-wider mb-1">💡 Ad-hoc Compiler Tip</p>
-                Ad-hoc rooms let you practice on pre-seeded LeetCode problems in an identical real-time environment.
               </div>
               <div className="p-3.5 bg-neutral-50 border border-neutral-200/50 rounded-2xl text-xs text-neutral-500 leading-relaxed font-semibold font-mono">
                 <p className="text-neutral-800 font-extrabold text-[9px] uppercase tracking-wider mb-1">📅 Auto Calendar Sync</p>
@@ -573,86 +521,7 @@ export default function CandidateInterviews() {
         </div>
       )}
 
-      {/* Schedule Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white border border-neutral-200 rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden">
-            <form onSubmit={handleSchedule}>
-              <div className="flex justify-between items-center p-6 border-b border-neutral-100">
-                <h2 className="text-base font-extrabold text-neutral-950 flex items-center gap-1.5">
-                  <Sparkles size={16} className="text-orange-500" />
-                  Schedule Interview
-                </h2>
-                <button 
-                  type="button" 
-                  onClick={() => setShowScheduleModal(false)} 
-                  className="w-8 h-8 rounded-full bg-neutral-50 hover:bg-neutral-100 flex items-center justify-center text-neutral-400 hover:text-neutral-950 transition-colors cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Active Requisitions</label>
-                  <select
-                    value={selectedAppKey}
-                    onChange={(e) => setSelectedAppKey(e.target.value)}
-                    required
-                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-3 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-2xs cursor-pointer"
-                  >
-                    <option value="">Select Requisition...</option>
-                    {applications.map(app => (
-                      <option key={app.id} value={`${app.candidate?.id}:${app.job}`}>
-                        {app.job_title || 'N/A'} - {app.company_name || 'N/A'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-850 rounded-2xl px-4 py-3 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-2xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Time</label>
-                    <input
-                      type="time"
-                      required
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-850 rounded-2xl px-4 py-3 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-2xs"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-end gap-3 pt-6 border-t border-neutral-100 mt-6">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowScheduleModal(false)} 
-                    className="px-5 py-2.5 border border-neutral-200 hover:border-neutral-950 rounded-full text-xs font-bold text-neutral-500 hover:text-neutral-950 transition-colors bg-white cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="px-6 py-2.5 border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white bg-transparent rounded-full text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer focus:outline-hidden"
-                  >
-                    Schedule Session
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
     </div>
   );

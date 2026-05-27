@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, Video, Users, Link as LinkIcon, AlertCircle, 
-  X, Check, Bell, Plus, Sparkles, Star, Clock, Inbox, ArrowUpRight
+  X, Check, Sparkles, Star, Clock
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api/api';
@@ -10,7 +10,6 @@ export default function InterviewsView() {
   const navigate = useNavigate();
   const recruiterName = localStorage.getItem('userName') || 'Recruiter';
   const [activeTab, setActiveTab] = useState('upcoming');
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedInterview, setSelectedInterview] = useState(null);
 
@@ -22,37 +21,27 @@ export default function InterviewsView() {
   const [loading, setLoading] = useState(true);
 
   const [interviews, setInterviews] = useState([]);
-  const [candidates, setCandidates] = useState([]);
-  const [selectedAppKey, setSelectedAppKey] = useState(''); // "candidate_id:job_id"
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchInterviewsAndCandidates = async () => {
+  const fetchInterviews = async () => {
     setLoading(true);
     try {
-      const [interviewsData, candidatesData] = await Promise.all([
-        api.interviews.list(),
-        api.candidates.list()
-      ]);
-      setInterviews(interviewsData);
-      setCandidates(candidatesData);
-      if (candidatesData.length > 0) {
-        setSelectedAppKey(`${candidatesData[0].candidate.id}:${candidatesData[0].job}`);
-      }
+      const interviewsData = await api.interviews.list();
+      setInterviews(Array.isArray(interviewsData) ? interviewsData : []);
     } catch (err) {
-      showToast('Failed to fetch scheduled interviews.', 'error');
+      console.error('Failed to fetch interviews:', err);
+      setInterviews([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchInterviewsAndCandidates();
+    fetchInterviews();
   }, []);
 
   const handleCopyLink = (interviewId) => {
@@ -63,28 +52,7 @@ export default function InterviewsView() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSendReminders = () => {
-    showToast('Reminder emails sent to all upcoming candidates and interviewers!');
-  };
 
-  const handleSchedule = async (e) => {
-    e.preventDefault();
-    if (!selectedAppKey || !date || !time) {
-      showToast('Please select a candidate, date, and time.', 'error');
-      return;
-    }
-
-    const [candidateId, jobId] = selectedAppKey.split(':');
-    try {
-      const scheduledAt = new Date(`${date}T${time}`).toISOString();
-      await api.interviews.schedule(candidateId, jobId, scheduledAt);
-      showToast('Interview scheduled successfully!');
-      setShowScheduleModal(false);
-      fetchInterviewsAndCandidates();
-    } catch (err) {
-      showToast(err.message || 'Failed to schedule interview.', 'error');
-    }
-  };
 
   const handleOpenReschedule = (interview) => {
     setSelectedInterview(interview);
@@ -113,7 +81,7 @@ export default function InterviewsView() {
       await api.interviews.reschedule(selectedInterview.room_id, newScheduledAt);
       showToast('Interview session rescheduled successfully!');
       setShowRescheduleModal(false);
-      fetchInterviewsAndCandidates();
+      fetchInterviews();
     } catch (err) {
       showToast(err.message || 'Failed to reschedule session.', 'error');
     }
@@ -423,64 +391,17 @@ export default function InterviewsView() {
           )}
         </div>
 
-        {/* Right column: Actions, notifications, and metrics (xl:col-span-4) */}
+        {/* Right column: Overview stats (xl:col-span-4) */}
         <div className="xl:col-span-4 space-y-6">
-          
-          {/* Quick actions panel */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] shadow-xs p-6 space-y-5">
-            <h3 className="text-sm font-black text-neutral-950 tracking-tight">Quick Actions</h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => setShowScheduleModal(true)}
-                className="w-full text-left p-4 bg-white hover:bg-neutral-50 border border-neutral-100/60 rounded-2xl text-xs font-bold text-neutral-600 hover:text-neutral-950 flex items-center gap-3 transition-all hover:translate-x-0.5 shadow-xs shadow-neutral-100/30 cursor-pointer"
-              >
-                <div className="bg-orange-50 p-2.5 rounded-xl text-orange-500"><Plus size={14} /></div>
-                Schedule New Interview
-              </button>
-              <Link
-                to="/recruiter/interview/adhoc"
-                className="w-full text-left p-4 bg-white hover:bg-neutral-50 border border-neutral-100/60 rounded-2xl text-xs font-bold text-neutral-600 hover:text-neutral-950 flex items-center gap-3 transition-all hover:translate-x-0.5 shadow-xs shadow-neutral-100/30 block"
-              >
-                <div className="bg-neutral-950 p-2.5 rounded-xl text-white"><Video size={14} /></div>
-                Start Ad-hoc Room
-              </Link>
-              <button
-                onClick={handleSendReminders}
-                className="w-full text-left p-4 bg-white hover:bg-neutral-50 border border-neutral-100/60 rounded-2xl text-xs font-bold text-neutral-600 hover:text-neutral-950 flex items-center gap-3 transition-all hover:translate-x-0.5 shadow-xs shadow-neutral-100/30 cursor-pointer"
-              >
-                <div className="bg-neutral-50 p-2.5 rounded-xl text-neutral-450 hover:text-orange-500 transition-colors"><Bell size={14} /></div>
-                Send Reminder Emails
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive Reminders & Notifications Widget */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] shadow-xs p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-black text-neutral-950 tracking-tight">Notifications & Reminders</h3>
-              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-            </div>
-            
-            <div className="space-y-3.5">
-              <div className="p-3.5 bg-orange-500/5 border border-orange-500/10 rounded-2xl text-xs text-neutral-700 leading-relaxed font-semibold">
-                <p className="text-orange-600 font-extrabold text-[9px] uppercase tracking-wider mb-1">⏰ Impending loops</p>
-                Email notifications are systematically dispatched to both interviewers and candidate profiles 1 hour prior to scheduled assessments.
-              </div>
-              <div className="p-3.5 bg-neutral-50 border border-neutral-200/50 rounded-2xl text-xs text-neutral-500 leading-relaxed font-semibold">
-                <p className="text-neutral-800 font-extrabold text-[9px] uppercase tracking-wider mb-1">💡 Compiler Evaluation</p>
-                Recruiter views inside compiler rooms are read-only. Evaluate solutions directly from the evaluation note drawer.
-              </div>
-            </div>
-          </div>
 
           {/* Overview stats panel */}
           <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] shadow-xs p-6 space-y-5">
-            <h3 className="text-sm font-black text-neutral-950 tracking-tight">This Month</h3>
+            <h3 className="text-sm font-black text-neutral-950 tracking-tight">Overview — This Month</h3>
             <div className="space-y-4">
               {[
                 { label: 'Total Scheduled', value: interviews.length, bullet: 'bg-orange-500' },
-                { label: 'Completed Log', value: interviews.filter(i => i.completed_at).length, bullet: 'bg-emerald-500' },
-                { label: 'Upcoming Later', value: upcomingInterviews.length, bullet: 'bg-neutral-800' }
+                { label: 'Completed', value: interviews.filter(i => i.completed_at).length, bullet: 'bg-emerald-500' },
+                { label: 'Upcoming', value: upcomingInterviews.length, bullet: 'bg-neutral-800' }
               ].map((s, i) => (
                 <div key={i} className="flex justify-between items-center text-xs font-bold">
                   <div className="flex items-center gap-2.5">
@@ -565,86 +486,7 @@ export default function InterviewsView() {
         </div>
       )}
 
-      {/* Schedule Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white border border-neutral-200 rounded-[2.2rem] shadow-2xl w-full max-w-lg overflow-hidden">
-            <form onSubmit={handleSchedule}>
-              <div className="flex justify-between items-center p-6 border-b border-neutral-100">
-                <h2 className="text-base font-extrabold text-neutral-950 flex items-center gap-1.5">
-                  <Sparkles size={16} className="text-orange-500" />
-                  Schedule Interview
-                </h2>
-                <button 
-                  type="button" 
-                  onClick={() => setShowScheduleModal(false)} 
-                  className="w-8 h-8 rounded-full bg-neutral-50 hover:bg-neutral-100 flex items-center justify-center text-neutral-400 hover:text-neutral-950 transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Candidate Application</label>
-                  <select
-                    value={selectedAppKey}
-                    onChange={(e) => setSelectedAppKey(e.target.value)}
-                    required
-                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-850 rounded-2xl px-3 py-2.5 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-2xs cursor-pointer"
-                  >
-                    <option value="">Select Candidate...</option>
-                    {candidates.map(app => (
-                      <option key={app.id} value={`${app.candidate?.id}:${app.job}`}>
-                        {app.candidate ? `${app.candidate.first_name} ${app.candidate.last_name}` : 'Unknown'} - {app.job_title || 'N/A'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-850 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-2xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Time</label>
-                    <input
-                      type="time"
-                      required
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-850 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold shadow-2xs"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100 mt-6">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowScheduleModal(false)} 
-                    className="px-4 py-2 border border-neutral-200 hover:border-neutral-950 rounded-full text-xs font-bold text-neutral-500 hover:text-neutral-950 transition-colors bg-white cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="px-6 py-2.5 border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white bg-transparent rounded-full text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer focus:outline-hidden"
-                  >
-                    Schedule Session
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
     </div>
   );

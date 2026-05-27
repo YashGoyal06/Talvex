@@ -166,14 +166,6 @@ export default function CandidateProfile({ candidateId }) {
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-2.5 pt-2">
-            <button className="px-5 py-2.5 bg-neutral-950 hover:bg-neutral-900 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-md" onClick={() => navigate(`/recruiter/interview/adhoc`)}>
-              <Video size={12} className="text-orange-500" /> Start Assessment
-            </button>
-            <button className="px-4 py-2.5 bg-white hover:bg-neutral-50 border border-neutral-200 hover:border-neutral-950 text-neutral-600 hover:text-neutral-950 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm" onClick={() => navigate('/recruiter/interviews')}>
-              <Calendar size={12} className="text-neutral-500" /> Schedule Interview
-            </button>
-          </div>
         </div>
 
         {/* ATS score indicator */}

@@ -372,13 +372,6 @@ export default function RecruiterDashboard() {
                 <Plus size={14} className="text-orange-500" />
               </button>
               <button 
-                onClick={() => navigate('/recruiter/interviews')}
-                className="w-full flex items-center justify-between p-4 bg-white border border-neutral-100 rounded-2xl hover:border-orange-500/20 shadow-xs hover:shadow-sm transition-all group cursor-pointer"
-              >
-                <span className="text-xs font-bold text-neutral-800 group-hover:text-orange-500 transition-colors">Schedule Technical Round</span>
-                <Calendar size={14} className="text-neutral-500" />
-              </button>
-              <button 
                 onClick={() => navigate('/recruiter/candidates')}
                 className="w-full flex items-center justify-between p-4 bg-white border border-neutral-100 rounded-2xl hover:border-orange-500/20 shadow-xs hover:shadow-sm transition-all group cursor-pointer"
               >
