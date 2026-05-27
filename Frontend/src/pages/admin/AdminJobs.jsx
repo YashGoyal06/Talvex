@@ -87,7 +87,7 @@ export default function AdminJobs() {
       )}
 
       {/* Jobs Table */}
-      <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] overflow-hidden shadow-sm">
+      <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2.2rem] overflow-x-auto shadow-sm">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-neutral-50/50 border-b border-neutral-100 text-[10px] uppercase tracking-wider text-neutral-400 font-bold">

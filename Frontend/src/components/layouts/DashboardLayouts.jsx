@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Briefcase, Video, Activity, 
-  LogOut, Columns3, Search, Bell, Sun, Cloud, Calendar, User
+  LogOut, Columns3, Search, Bell, Sun, Cloud, Calendar, User,
+  Menu, X
 } from 'lucide-react';
 
-const Sidebar = ({ role }) => {
+const Sidebar = ({ role, isMobile, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,48 +26,63 @@ const Sidebar = ({ role }) => {
   const isAdminTheme = role === 'admin';
 
   const handleProfileClick = () => {
+    if (onClose) onClose();
     navigate(`/${role}/settings`);
   };
 
+  const wrapperClasses = isMobile
+    ? `w-full h-full flex flex-col justify-between select-none`
+    : `hidden lg:flex w-72 h-[calc(100vh-3rem)] flex-col fixed left-6 top-6 rounded-[2.2rem] z-40 p-6 justify-between select-none border transition-colors duration-300 ${
+        isAdminTheme 
+          ? 'bg-[#0C0D12]/90 border-neutral-800/80 shadow-[0_15px_50px_-15px_rgba(0,0,0,0.4)] text-white' 
+          : 'bg-white/80 backdrop-blur-xl border-white/40 shadow-[0_15px_50px_-15px_rgba(0,0,0,0.06)] text-neutral-800'
+      }`;
+
   return (
-    <div className={`w-72 h-[calc(100vh-3rem)] flex flex-col fixed left-6 top-6 rounded-[2.2rem] z-40 p-6 justify-between select-none border transition-colors duration-300 ${
-      isAdminTheme 
-        ? 'bg-[#0C0D12]/90 border-neutral-800/80 shadow-[0_15px_50px_-15px_rgba(0,0,0,0.4)] text-white' 
-        : 'bg-white/80 backdrop-blur-xl border-white/40 shadow-[0_15px_50px_-15px_rgba(0,0,0,0.06)] text-neutral-800'
-    }`}>
+    <div className={wrapperClasses}>
       
       {/* Brand Header */}
       <div>
-        <div className="flex items-center gap-3 px-2 py-2">
-          <img src="/talvax_logo_navbar.png" className="w-10 h-10 object-contain shadow-sm" alt="Tarvax Logo" />
-          <div>
-            <h1 className={`text-lg font-bold tracking-tight leading-none ${isAdminTheme ? 'text-white' : 'text-neutral-950'}`}>
-              {role === 'admin' ? 'Tarvax' : 'Talvax'}
-            </h1>
-            <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isAdminTheme ? 'text-[#FF6B00]' : 'text-neutral-400'}`}>Enterprise</p>
+        <div className="flex items-center justify-between gap-3 px-2 py-2">
+          <div className="flex items-center gap-3">
+            <img src="/talvax_logo_navbar.png" className="w-10 h-10 object-contain shadow-sm" alt="Tarvax Logo" />
+            <div>
+              <h1 className={`text-lg font-bold tracking-tight leading-none ${isAdminTheme ? 'text-white' : 'text-neutral-950'}`}>
+                {role === 'admin' ? 'Tarvax' : 'Talvax'}
+              </h1>
+              <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isAdminTheme ? 'text-[#FF6B00]' : 'text-neutral-400'}`}>Enterprise</p>
+            </div>
           </div>
+          {isMobile && (
+            <button 
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-850 text-neutral-400 hover:text-neutral-950 focus:outline-hidden cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {/* Navigation Items */}
         <nav className="space-y-1.5 mt-8">
           {role === 'admin' ? (
             <>
-              <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/admin" exact isAdminTheme={isAdminTheme} />
-              <NavItem icon={<Users size={18} />} label="Recruiters" to="/admin/recruiters" isAdminTheme={isAdminTheme} />
+              <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/admin" exact isAdminTheme={isAdminTheme} onClick={onClose} />
+              <NavItem icon={<Users size={18} />} label="Recruiters" to="/admin/recruiters" isAdminTheme={isAdminTheme} onClick={onClose} />
             </>
           ) : role === 'candidate' ? (
             <>
-              <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/candidate/dashboard" exact isAdminTheme={isAdminTheme} />
-              <NavItem icon={<Briefcase size={18} />} label="Jobs" to="/candidate/jobs" isAdminTheme={isAdminTheme} />
-              <NavItem icon={<Video size={18} />} label="Interviews" to="/candidate/interviews" isAdminTheme={isAdminTheme} />
+              <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/candidate/dashboard" exact isAdminTheme={isAdminTheme} onClick={onClose} />
+              <NavItem icon={<Briefcase size={18} />} label="Jobs" to="/candidate/jobs" isAdminTheme={isAdminTheme} onClick={onClose} />
+              <NavItem icon={<Video size={18} />} label="Interviews" to="/candidate/interviews" isAdminTheme={isAdminTheme} onClick={onClose} />
             </>
           ) : (
             <>
-              <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/recruiter" exact isAdminTheme={isAdminTheme} />
-              <NavItem icon={<Users size={18} />} label="Candidates" to="/recruiter/candidates" isAdminTheme={isAdminTheme} />
-              <NavItem icon={<Columns3 size={18} />} label="ATS Pipeline" to="/recruiter/ats" isAdminTheme={isAdminTheme} />
-              <NavItem icon={<Briefcase size={18} />} label="Jobs" to="/recruiter/jobs" isAdminTheme={isAdminTheme} />
-              <NavItem icon={<Video size={18} />} label="Interviews" to="/recruiter/interviews" isAdminTheme={isAdminTheme} />
+              <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/recruiter" exact isAdminTheme={isAdminTheme} onClick={onClose} />
+              <NavItem icon={<Users size={18} />} label="Candidates" to="/recruiter/candidates" isAdminTheme={isAdminTheme} onClick={onClose} />
+              <NavItem icon={<Columns3 size={18} />} label="ATS Pipeline" to="/recruiter/ats" isAdminTheme={isAdminTheme} onClick={onClose} />
+              <NavItem icon={<Briefcase size={18} />} label="Jobs" to="/recruiter/jobs" isAdminTheme={isAdminTheme} onClick={onClose} />
+              <NavItem icon={<Video size={18} />} label="Interviews" to="/recruiter/interviews" isAdminTheme={isAdminTheme} onClick={onClose} />
             </>
           )}
         </nav>
@@ -119,13 +135,14 @@ const Sidebar = ({ role }) => {
   );
 };
 
-const NavItem = ({ icon, label, to, exact, isAdminTheme }) => {
+const NavItem = ({ icon, label, to, exact, isAdminTheme, onClick }) => {
   const location = useLocation();
   const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
 
   return (
     <Link
       to={to}
+      onClick={onClick}
       className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 relative group ${
         isActive 
           ? 'border-2 border-orange-500 text-orange-500 bg-transparent font-extrabold shadow-sm'
@@ -152,6 +169,7 @@ const NavItem = ({ icon, label, to, exact, isAdminTheme }) => {
 const DashboardLayoutWrapper = ({ role }) => {
   const location = useLocation();
   const [time, setTime] = useState(new Date());
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isAdminTheme = role === 'admin';
   const isSettingsPage = location.pathname.endsWith('/settings');
 
@@ -190,11 +208,56 @@ const DashboardLayoutWrapper = ({ role }) => {
         )}
       </div>
 
-      {/* Floating Capsule Sidebar */}
-      <Sidebar role={role} />
+      {/* Mobile Top Navbar Header (Visible only on smaller screens) */}
+      <header className={`lg:hidden flex items-center justify-between px-6 py-4 border-b relative z-30 bg-white/80 backdrop-blur-xl select-none ${
+        isAdminTheme ? 'bg-[#0C0D12]/95 border-neutral-800/80 text-white' : 'bg-white/85 border-slate-200/50 text-neutral-800'
+      }`}>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className={`p-2 rounded-xl transition-all cursor-pointer ${
+              isAdminTheme ? 'hover:bg-neutral-800 text-neutral-400 hover:text-white' : 'hover:bg-neutral-100 text-neutral-500 hover:text-neutral-950'
+            }`}
+          >
+            <Menu size={20} />
+          </button>
+          <img src="/talvax_logo_navbar.png" className="w-8 h-8 object-contain shrink-0" alt="Logo" />
+          <span className={`text-base font-bold tracking-tight ${isAdminTheme ? 'text-white' : 'text-neutral-950'}`}>
+            {role === 'admin' ? 'Tarvax' : 'Talvax'}
+          </span>
+        </div>
+        <div className="text-xs font-mono font-bold text-neutral-400 shrink-0">
+          {formattedTime}
+        </div>
+      </header>
 
-      {/* Main Content Area */}
-      <div className="ml-[20rem] p-8 relative z-10 min-h-screen flex flex-col">
+      {/* Sidebar (Large Screen Desktop Layout) */}
+      <Sidebar role={role} isMobile={false} />
+
+      {/* Mobile Sliding Navigation Drawer */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop Blur Overlay */}
+          <div 
+            className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs transition-opacity duration-300"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          
+          {/* Menu Drawer Content */}
+          <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] p-4 flex flex-col justify-between z-50 bg-transparent animate-fade-in">
+            <div className={`h-full flex flex-col p-6 justify-between select-none border rounded-[2.2rem] shadow-2xl transition-all duration-300 ${
+              isAdminTheme 
+                ? 'bg-[#0C0D12]/95 border-neutral-800/80 text-white' 
+                : 'bg-white/95 backdrop-blur-xl border-white/40 text-neutral-800'
+            }`}>
+              <Sidebar role={role} isMobile={true} onClose={() => setIsMobileMenuOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Area (ml-0 on mobile, shifts lg:ml-[20rem] on desktop) */}
+      <div className="ml-0 lg:ml-[20rem] p-4 sm:p-6 lg:p-8 relative z-10 min-h-screen flex flex-col">
         
         {/* Dynamic Outlet Page Wrapper */}
         <main className={`flex-1 ${isAdminTheme ? 'text-neutral-200' : (isSettingsPage ? '' : 'dashboard-content')}`}>

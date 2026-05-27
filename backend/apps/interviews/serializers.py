@@ -13,7 +13,6 @@ class InterviewSessionSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'room_id', 'created_at']
 
     def create(self, validated_data):
-        company = self.context['request'].company
         candidate_id = self.context['request'].data.get('candidate_id')
         job_id = self.context['request'].data.get('job_id')
 
@@ -21,7 +20,8 @@ class InterviewSessionSerializer(serializers.ModelSerializer):
         from jobs.models import Job
 
         candidate = Candidate.objects.get(id=candidate_id)
-        job = Job.objects.get(id=job_id, company=company)
+        job = Job.objects.get(id=job_id)
+        company = job.company
 
         return InterviewSession.objects.create(
             company=company,

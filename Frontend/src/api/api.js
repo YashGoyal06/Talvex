@@ -4,8 +4,7 @@ const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000/ws'
 // Helper to get auth headers
 function getAuthHeaders() {
   const token = localStorage.getItem('accessToken');
-  const role = localStorage.getItem('userRole');
-  return (token && token !== 'undefined' && token !== 'null' && role !== 'candidate') 
+  return (token && token !== 'undefined' && token !== 'null') 
     ? { 'Authorization': `Bearer ${token}` } 
     : {};
 }
@@ -333,6 +332,15 @@ export const api = {
 
     async getDetail(roomId) {
       return request(`/interviews/${roomId}/`);
+    },
+
+    async reschedule(roomId, scheduledAt) {
+      return request(`/interviews/${roomId}/`, {
+        method: 'PATCH',
+        body: {
+          scheduled_at: scheduledAt
+        }
+      });
     },
 
     async updateNotes(roomId, notes) {

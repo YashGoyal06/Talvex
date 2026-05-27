@@ -15,7 +15,7 @@ class InterviewSessionListCreateView(generics.ListCreateAPIView):
         return InterviewSession.objects.filter(company=company).order_by('-scheduled_at')
 
 class InterviewSessionDetailView(views.APIView):
-    # AllowAny for get so candidate can access details before joining
+    # AllowAny for get and patch so candidate and recruiter can access details / reschedule
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, room_id):
@@ -25,6 +25,23 @@ class InterviewSessionDetailView(views.APIView):
             return Response({"detail": "Interview session not found."}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(InterviewSessionSerializer(session).data, status=status.HTTP_200_OK)
+
+    def patch(self, request, room_id):
+        try:
+            session = InterviewSession.objects.get(room_id=room_id)
+        except InterviewSession.DoesNotExist:
+            return Response({"detail": "Interview session not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        scheduled_at = request.data.get('scheduled_at')
+        if not scheduled_at:
+            return Response({"scheduled_at": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            session.scheduled_at = scheduled_at
+            session.save()
+            return Response(InterviewSessionSerializer(session).data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class UpdatePrivateNotesView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
