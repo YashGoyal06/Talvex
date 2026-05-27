@@ -52,6 +52,8 @@ export default function LiveInterviewRoom() {
   // Media states
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const micOnRef = useRef(micOn);
+  const camOnRef = useRef(camOn);
 
 
   // Dynamic Session Details
@@ -115,6 +117,14 @@ export default function LiveInterviewRoom() {
     focusModeEnabledRef.current = focusModeEnabled;
   }, [focusModeEnabled]);
 
+  useEffect(() => {
+    micOnRef.current = micOn;
+  }, [micOn]);
+
+  useEffect(() => {
+    camOnRef.current = camOn;
+  }, [camOn]);
+
   // Console Drawer states for Run/Submit
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleTab, setConsoleTab] = useState('results'); // 'results' or 'stdin'
@@ -174,8 +184,8 @@ export default function LiveInterviewRoom() {
           localVideoRef.current.srcObject = stream;
         }
         // Sync tracks with state
-        stream.getVideoTracks().forEach(track => { track.enabled = camOn; });
-        stream.getAudioTracks().forEach(track => { track.enabled = micOn; });
+        stream.getVideoTracks().forEach(track => { track.enabled = camOnRef.current; });
+        stream.getAudioTracks().forEach(track => { track.enabled = micOnRef.current; });
       } catch (err) {
         console.error("Error accessing camera/microphone:", err);
       } finally {
@@ -288,29 +298,256 @@ export default function LiveInterviewRoom() {
     if (!roomId || !webcamInitialized) return;
 
     const wsUrl = api.getWebSocketUrl(roomId);
-    const ws = new WebSocket(wsUrl);
+    const politePeer = !isRecruiter;
+    const ICE_RESTART_DELAY_MS = 1500;
+    const DISCONNECTED_RESTART_DELAY_MS = 2500;
+    const CONNECTIVITY_CHECK_MS = 10000;
+    const WS_RECONNECT_BASE_DELAY_MS = 1000;
+    const WS_RECONNECT_MAX_DELAY_MS = 10000;
 
-    const handleIceCandidate = (event) => {
-      if (event.candidate && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'webrtc_signal',
-          candidate: event.candidate
-        }));
-      }
+    let ws = null;
+    let shouldReconnectSocket = true;
+    let socketReconnectTimer = null;
+    let iceRestartTimer = null;
+    let connectivityCheckTimer = null;
+    let makingOffer = false;
+    let ignoreOffer = false;
+    let reconnectAttempt = 0;
+    let pendingIceCandidates = [];
+    let lastIceRestartAt = 0;
+    const connectivityStats = {
+      bytesReceived: 0,
+      stalledChecks: 0,
+      missingCandidatePairChecks: 0
     };
 
-    const handleTrack = (event) => {
-      console.log("Received remote track:", event.streams);
-      if (event.streams[0]) {
-        setRemoteStream(event.streams[0]);
-        setRemoteStreamActive(true);
-      }
-    };
+    function sendSocketMessage(message) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      ws.send(JSON.stringify(message));
+      return true;
+    }
 
-    const createPeerConnection = (stream) => {
+    function sendSignal(signal) {
+      return sendSocketMessage({
+        type: 'webrtc_signal',
+        ...signal
+      });
+    }
+
+    function resetConnectivityStats() {
+      connectivityStats.bytesReceived = 0;
+      connectivityStats.stalledChecks = 0;
+      connectivityStats.missingCandidatePairChecks = 0;
+    }
+
+    function clearIceRestartTimer() {
+      if (iceRestartTimer) {
+        clearTimeout(iceRestartTimer);
+        iceRestartTimer = null;
+      }
+    }
+
+    function stopConnectivityChecks() {
+      if (connectivityCheckTimer) {
+        clearInterval(connectivityCheckTimer);
+        connectivityCheckTimer = null;
+      }
+    }
+
+    function cleanupPeerConnection(markRemoteInactive = true) {
+      clearIceRestartTimer();
+      stopConnectivityChecks();
+      resetConnectivityStats();
+      pendingIceCandidates = [];
+      ignoreOffer = false;
+      makingOffer = false;
+
       if (peerConnectionRef.current) {
+        peerConnectionRef.current.onicecandidate = null;
+        peerConnectionRef.current.ontrack = null;
+        peerConnectionRef.current.oniceconnectionstatechange = null;
+        peerConnectionRef.current.onconnectionstatechange = null;
+        peerConnectionRef.current.onnegotiationneeded = null;
         peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
       }
+
+      if (markRemoteInactive) {
+        setRemoteStreamActive(false);
+      }
+    }
+
+    function syncLocalTracks(pc, stream) {
+      if (!stream) return;
+      const senderTrackIds = new Set(
+        pc.getSenders()
+          .map(sender => sender.track?.id)
+          .filter(Boolean)
+      );
+
+      stream.getTracks().forEach(track => {
+        if (!senderTrackIds.has(track.id)) {
+          pc.addTrack(track, stream);
+        }
+      });
+    }
+
+    function scheduleIceRestart(reason, delay = ICE_RESTART_DELAY_MS) {
+      const pc = peerConnectionRef.current;
+      if (!shouldReconnectSocket || !pc || pc.signalingState === 'closed' || iceRestartTimer) return;
+
+      iceRestartTimer = setTimeout(() => {
+        iceRestartTimer = null;
+        restartIce(reason);
+      }, delay);
+    }
+
+    function handlePeerConnectionState(pc, reason) {
+      const iceState = pc.iceConnectionState;
+      const connectionState = pc.connectionState;
+
+      console.log(`WebRTC state changed (${reason})`, {
+        iceConnectionState: iceState,
+        connectionState
+      });
+
+      if (iceState === 'connected' || iceState === 'completed' || connectionState === 'connected') {
+        clearIceRestartTimer();
+        resetConnectivityStats();
+      }
+
+      if (iceState === 'failed' || connectionState === 'failed') {
+        scheduleIceRestart(reason, 0);
+      } else if (iceState === 'disconnected' || connectionState === 'disconnected') {
+        scheduleIceRestart(reason, DISCONNECTED_RESTART_DELAY_MS);
+      } else if (iceState === 'closed' || connectionState === 'closed') {
+        setRemoteStreamActive(false);
+      }
+    }
+
+    async function restartIce(reason) {
+      const pc = createPeerConnection(localStreamRef.current);
+      if (!pc || pc.signalingState === 'closed') return;
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        scheduleSocketReconnect();
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastIceRestartAt < 3000) {
+        scheduleIceRestart(reason, ICE_RESTART_DELAY_MS);
+        return;
+      }
+
+      if (pc.signalingState !== 'stable') {
+        scheduleIceRestart(reason, ICE_RESTART_DELAY_MS);
+        return;
+      }
+
+      try {
+        lastIceRestartAt = now;
+        console.log(`Restarting WebRTC ICE: ${reason}`);
+        if (typeof pc.restartIce === 'function') {
+          pc.restartIce();
+        }
+        await createAndSendOffer({ iceRestart: true });
+      } catch (err) {
+        console.error("Error restarting WebRTC ICE:", err);
+        scheduleIceRestart('ice restart failed', DISCONNECTED_RESTART_DELAY_MS);
+      }
+    }
+
+    function startConnectivityChecks() {
+      stopConnectivityChecks();
+      connectivityCheckTimer = setInterval(checkConnectivity, CONNECTIVITY_CHECK_MS);
+    }
+
+    async function checkConnectivity() {
+      const pc = peerConnectionRef.current;
+      if (!pc || pc.signalingState === 'closed') return;
+
+      const iceState = pc.iceConnectionState;
+      const connectionState = pc.connectionState;
+
+      if (iceState === 'failed' || connectionState === 'failed') {
+        scheduleIceRestart('periodic check detected failed connection', 0);
+        return;
+      }
+
+      if (iceState === 'disconnected' || connectionState === 'disconnected') {
+        scheduleIceRestart('periodic check detected disconnected connection', 0);
+        return;
+      }
+
+      if (iceState !== 'connected' && iceState !== 'completed' && connectionState !== 'connected') {
+        return;
+      }
+
+      try {
+        const stats = await pc.getStats();
+        let inboundBytes = 0;
+        let candidatePairSeen = false;
+        let selectedCandidatePairReady = false;
+
+        stats.forEach(report => {
+          if (
+            report.type === 'inbound-rtp' &&
+            !report.isRemote &&
+            (report.kind === 'audio' || report.kind === 'video')
+          ) {
+            inboundBytes += report.bytesReceived || 0;
+          }
+
+          if (report.type === 'candidate-pair') {
+            candidatePairSeen = true;
+            if ((report.selected || report.nominated) && report.state === 'succeeded') {
+              selectedCandidatePairReady = true;
+            }
+          }
+
+          if (report.type === 'transport' && report.selectedCandidatePairId) {
+            candidatePairSeen = true;
+            const selectedPair = stats.get(report.selectedCandidatePairId);
+            if (selectedPair?.state === 'succeeded') {
+              selectedCandidatePairReady = true;
+            }
+          }
+        });
+
+        if (candidatePairSeen) {
+          connectivityStats.missingCandidatePairChecks = selectedCandidatePairReady
+            ? 0
+            : connectivityStats.missingCandidatePairChecks + 1;
+
+          if (connectivityStats.missingCandidatePairChecks >= 2) {
+            scheduleIceRestart('periodic check lost selected candidate pair', 0);
+          }
+        }
+
+        if (inboundBytes > 0) {
+          connectivityStats.stalledChecks = inboundBytes === connectivityStats.bytesReceived
+            ? connectivityStats.stalledChecks + 1
+            : 0;
+          connectivityStats.bytesReceived = inboundBytes;
+
+          if (connectivityStats.stalledChecks >= 3) {
+            connectivityStats.stalledChecks = 0;
+            scheduleIceRestart('periodic check detected stalled inbound media', 0);
+          }
+        }
+      } catch (err) {
+        console.warn("WebRTC connectivity check failed:", err);
+      }
+    }
+
+    function createPeerConnection(stream) {
+      if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'closed') {
+        syncLocalTracks(peerConnectionRef.current, stream);
+        return peerConnectionRef.current;
+      }
+
+      cleanupPeerConnection(false);
 
       const pc = new RTCPeerConnection({
         iceServers: [
@@ -337,183 +574,325 @@ export default function LiveInterviewRoom() {
         ]
       });
 
-      pc.onicecandidate = handleIceCandidate;
-      pc.ontrack = handleTrack;
-
-      if (stream) {
-        stream.getTracks().forEach(track => {
-          pc.addTrack(track, stream);
-        });
-      }
-
       peerConnectionRef.current = pc;
-      return pc;
-    };
 
-    ws.onopen = () => {
-      console.log('Connected to WebSocket room');
-      // Notify other peers that you joined
-      ws.send(JSON.stringify({
-        type: 'peer_status',
-        action: 'join',
-        message: `${userName} has joined the room.`
-      }));
-
-      // Send initial camera and microphone states
-      ws.send(JSON.stringify({
-        type: 'peer_cam_status',
-        camOn
-      }));
-      ws.send(JSON.stringify({
-        type: 'peer_mic_status',
-        micOn
-      }));
-
-      // Send initial focus mode state if candidate
-      if (!isRecruiter) {
-        ws.send(JSON.stringify({
-          type: 'focus_mode_status',
-          enabled: focusModeEnabledRef.current
-        }));
-      }
-    };
-
-    ws.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'code_edit') {
-        setCode(data.code);
-      } else if (data.type === 'chat_message') {
-        setChatMessages(prev => [...prev, { from: data.from, text: data.text, time: data.time }]);
-      } else if (data.type === 'language_change') {
-        setEditorLanguage(data.language);
-      } else if (data.type === 'problems_update') {
-        setProblems(data.problems);
-        // Find matching active problem
-        if (data.problems.length > 0) {
-          const currentActive = data.problems.find(p => p.title === selectedProblem?.title) || data.problems[0];
-          setSelectedProblem(currentActive);
-          setCode(currentActive.starter_code?.[editorLanguage] || defaultStarterCodes[editorLanguage] || '');
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendSignal({ candidate: event.candidate });
         }
-      } else if (data.type === 'problem_change') {
-        setSelectedProblem(data.problem);
-        setCode(data.code);
-      } else if (data.type === 'focus_mode_status') {
-        setCandidateFocusModeEnabled(data.enabled);
-      } else if (data.type === 'peer_status') {
+      };
 
-        setChatMessages(prev => [...prev, { from: 'System', text: data.message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-        
-        if (data.action === 'join') {
-          console.log("Peer joined, creating WebRTC offer...");
-          if (!isRecruiter && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'focus_mode_status',
-              enabled: focusModeEnabledRef.current
-            }));
+      pc.ontrack = (event) => {
+        console.log("Received remote track:", event.streams);
+        if (event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+          setRemoteStreamActive(true);
+        }
+
+        event.track.onunmute = () => {
+          setRemoteStreamActive(true);
+        };
+
+        event.track.onmute = () => {
+          const currentPc = peerConnectionRef.current;
+          if (
+            currentPc &&
+            ['connected', 'completed', 'disconnected', 'failed'].includes(currentPc.iceConnectionState)
+          ) {
+            scheduleIceRestart('remote track muted', DISCONNECTED_RESTART_DELAY_MS);
           }
-          const pc = createPeerConnection(localStreamRef.current);
-          try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            ws.send(JSON.stringify({
-              type: 'webrtc_signal',
-              sdp: pc.localDescription
-            }));
-          } catch (err) {
-            console.error("Error creating WebRTC offer:", err);
-          }
-        } else if (data.action === 'leave') {
-          console.log("Peer left, cleaning up WebRTC connection...");
-          if (peerConnectionRef.current) {
-            peerConnectionRef.current.close();
-            peerConnectionRef.current = null;
-          }
+        };
+
+        event.track.onended = () => {
           setRemoteStreamActive(false);
-        }
-      } else if (data.type === 'peer_cam_status') {
-        setRemoteCamOn(data.camOn);
-      } else if (data.type === 'peer_mic_status') {
-        setRemoteMicOn(data.micOn);
-      } else if (data.type === 'webrtc_signal') {
-        if (data.sdp) {
-          if (data.sdp.type === 'offer') {
-            console.log("Received WebRTC offer, creating answer...");
-            const pc = createPeerConnection(localStreamRef.current);
-            try {
-              await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-              const answer = await pc.createAnswer();
-              await pc.setLocalDescription(answer);
-              ws.send(JSON.stringify({
-                type: 'webrtc_signal',
-                sdp: pc.localDescription
-              }));
-            } catch (err) {
-              console.error("Error creating WebRTC answer:", err);
-            }
-          } else if (data.sdp.type === 'answer') {
-            console.log("Received WebRTC answer, setting remote description...");
-            const pc = peerConnectionRef.current;
-            if (pc) {
-              try {
-                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-              } catch (err) {
-                console.error("Error setting remote description from answer:", err);
-              }
-            }
+          scheduleIceRestart('remote track ended', ICE_RESTART_DELAY_MS);
+        };
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        handlePeerConnectionState(pc, `ice:${pc.iceConnectionState}`);
+      };
+
+      pc.onconnectionstatechange = () => {
+        handlePeerConnectionState(pc, `connection:${pc.connectionState}`);
+      };
+
+      pc.onnegotiationneeded = async () => {
+        try {
+          if (!makingOffer && pc.signalingState === 'stable') {
+            await createAndSendOffer();
           }
-        } else if (data.candidate) {
-          console.log("Received WebRTC ICE candidate...");
-          const pc = peerConnectionRef.current;
-          if (pc) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-            } catch (err) {
-              console.error("Error adding received ICE candidate:", err);
-            }
-          }
+        } catch (err) {
+          console.error("Error during WebRTC renegotiation:", err);
         }
-      } else if (data.type === 'whiteboard_draw') {
-        drawOnCanvasLocal(data.x0, data.y0, data.x1, data.y1, data.color);
-      } else if (data.type === 'whiteboard_clear') {
-        clearCanvasLocal();
-      } else if (data.type === 'peer_code_run') {
-        if (data.status === 'Running...' || data.status === 'Evaluating...') {
-          setRunning(data.status === 'Running...');
-          setSubmitting(data.status === 'Evaluating...');
-          setConsoleOpen(true);
-          setConsoleTab('results');
-          setConsoleOutput({ status: data.status, stdout: '', stderr: '', time: 0 });
-          setSubmitResult(null);
-        } else {
-          setRunning(false);
-          setSubmitting(false);
-          setConsoleOpen(data.consoleOpen || false);
-          if (data.consoleTab) setConsoleTab(data.consoleTab);
-          setConsoleOutput(data.consoleOutput || null);
-          setSubmitResult(data.submitResult || null);
+      };
+
+      syncLocalTracks(pc, stream);
+      startConnectivityChecks();
+      return pc;
+    }
+
+    async function createAndSendOffer(options = {}) {
+      const pc = createPeerConnection(localStreamRef.current);
+      if (
+        makingOffer ||
+        !pc ||
+        !ws ||
+        ws.readyState !== WebSocket.OPEN ||
+        pc.signalingState !== 'stable'
+      ) return;
+
+      try {
+        makingOffer = true;
+        const offer = await pc.createOffer(options);
+        await pc.setLocalDescription(offer);
+        sendSignal({ sdp: pc.localDescription });
+      } finally {
+        makingOffer = false;
+      }
+    }
+
+    async function flushPendingIceCandidates(pc) {
+      if (!pc.remoteDescription) return;
+
+      const candidates = [...pendingIceCandidates];
+      pendingIceCandidates = [];
+
+      for (const candidate of candidates) {
+        try {
+          await pc.addIceCandidate(candidate);
+        } catch (err) {
+          console.error("Error adding queued ICE candidate:", err);
         }
       }
-    };
+    }
 
-    ws.onclose = () => {
-      console.log('WebSocket closed');
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
+    async function addRemoteIceCandidate(candidateInit) {
+      const pc = createPeerConnection(localStreamRef.current);
+      const candidate = new RTCIceCandidate(candidateInit);
+
+      if (!pc.remoteDescription) {
+        pendingIceCandidates.push(candidate);
+        return;
       }
-      setRemoteStreamActive(false);
-    };
 
-    setSocket(ws);
+      try {
+        await pc.addIceCandidate(candidate);
+      } catch (err) {
+        if (!ignoreOffer) {
+          console.error("Error adding received ICE candidate:", err);
+        }
+      }
+    }
+
+    async function handleWebRtcSignal(data) {
+      if (data.sdp) {
+        const pc = createPeerConnection(localStreamRef.current);
+        const description = new RTCSessionDescription(data.sdp);
+        const readyForOffer = !makingOffer && pc.signalingState === 'stable';
+        const offerCollision = description.type === 'offer' && !readyForOffer;
+
+        ignoreOffer = !politePeer && offerCollision;
+        if (ignoreOffer) {
+          console.warn("Ignoring WebRTC offer collision on impolite peer.");
+          return;
+        }
+
+        try {
+          if (offerCollision) {
+            await pc.setLocalDescription({ type: 'rollback' });
+          }
+
+          if (description.type === 'answer' && pc.signalingState !== 'have-local-offer') {
+            console.warn("Ignoring stale WebRTC answer.");
+            return;
+          }
+
+          await pc.setRemoteDescription(description);
+          await flushPendingIceCandidates(pc);
+
+          if (description.type === 'offer') {
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            sendSignal({ sdp: pc.localDescription });
+          }
+        } catch (err) {
+          console.error("Error handling WebRTC session description:", err);
+        }
+      } else if (data.candidate) {
+        await addRemoteIceCandidate(data.candidate);
+      }
+    }
+
+    function scheduleSocketReconnect() {
+      if (!shouldReconnectSocket || socketReconnectTimer) return;
+
+      const delay = Math.min(
+        WS_RECONNECT_BASE_DELAY_MS * (2 ** Math.min(reconnectAttempt, 4)),
+        WS_RECONNECT_MAX_DELAY_MS
+      );
+      reconnectAttempt += 1;
+
+      socketReconnectTimer = setTimeout(() => {
+        socketReconnectTimer = null;
+        connectWebSocket();
+      }, delay);
+    }
+
+    function connectWebSocket() {
+      if (!shouldReconnectSocket) return;
+
+      const socketInstance = new WebSocket(wsUrl);
+      ws = socketInstance;
+      setSocket(socketInstance);
+
+      socketInstance.onopen = () => {
+        if (socketInstance !== ws) return;
+
+        console.log('Connected to WebSocket room');
+        reconnectAttempt = 0;
+
+        sendSocketMessage({
+          type: 'peer_status',
+          action: 'join',
+          message: `${userName} has joined the room.`
+        });
+
+        sendSocketMessage({
+          type: 'peer_cam_status',
+          camOn: camOnRef.current
+        });
+
+        sendSocketMessage({
+          type: 'peer_mic_status',
+          micOn: micOnRef.current
+        });
+
+        if (!isRecruiter) {
+          sendSocketMessage({
+            type: 'focus_mode_status',
+            enabled: focusModeEnabledRef.current
+          });
+        }
+      };
+
+      socketInstance.onmessage = async (event) => {
+        if (socketInstance !== ws) return;
+
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (err) {
+          console.warn("Unable to parse WebSocket message:", err);
+          return;
+        }
+
+        if (data.type === 'code_edit') {
+          setCode(data.code);
+        } else if (data.type === 'chat_message') {
+          setChatMessages(prev => [...prev, { from: data.from, text: data.text, time: data.time }]);
+        } else if (data.type === 'language_change') {
+          setEditorLanguage(data.language);
+        } else if (data.type === 'problems_update') {
+          setProblems(data.problems);
+          // Find matching active problem
+          if (data.problems.length > 0) {
+            const currentActive = data.problems.find(p => p.title === selectedProblem?.title) || data.problems[0];
+            setSelectedProblem(currentActive);
+            setCode(currentActive.starter_code?.[editorLanguage] || defaultStarterCodes[editorLanguage] || '');
+          }
+        } else if (data.type === 'problem_change') {
+          setSelectedProblem(data.problem);
+          setCode(data.code);
+        } else if (data.type === 'focus_mode_status') {
+          setCandidateFocusModeEnabled(data.enabled);
+        } else if (data.type === 'peer_status') {
+
+          setChatMessages(prev => [...prev, { from: 'System', text: data.message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+
+          if (data.action === 'join') {
+            console.log("Peer joined, creating WebRTC offer...");
+            if (!isRecruiter) {
+              sendSocketMessage({
+                type: 'focus_mode_status',
+                enabled: focusModeEnabledRef.current
+              });
+            }
+
+            try {
+              createPeerConnection(localStreamRef.current);
+              await createAndSendOffer();
+            } catch (err) {
+              console.error("Error creating WebRTC offer:", err);
+            }
+          } else if (data.action === 'leave') {
+            console.log("Peer left, cleaning up WebRTC connection...");
+            cleanupPeerConnection();
+          }
+        } else if (data.type === 'peer_cam_status') {
+          setRemoteCamOn(data.camOn);
+        } else if (data.type === 'peer_mic_status') {
+          setRemoteMicOn(data.micOn);
+        } else if (data.type === 'webrtc_signal') {
+          await handleWebRtcSignal(data);
+        } else if (data.type === 'whiteboard_draw') {
+          drawOnCanvasLocal(data.x0, data.y0, data.x1, data.y1, data.color);
+        } else if (data.type === 'whiteboard_clear') {
+          clearCanvasLocal();
+        } else if (data.type === 'peer_code_run') {
+          if (data.status === 'Running...' || data.status === 'Evaluating...') {
+            setRunning(data.status === 'Running...');
+            setSubmitting(data.status === 'Evaluating...');
+            setConsoleOpen(true);
+            setConsoleTab('results');
+            setConsoleOutput({ status: data.status, stdout: '', stderr: '', time: 0 });
+            setSubmitResult(null);
+          } else {
+            setRunning(false);
+            setSubmitting(false);
+            setConsoleOpen(data.consoleOpen || false);
+            if (data.consoleTab) setConsoleTab(data.consoleTab);
+            setConsoleOutput(data.consoleOutput || null);
+            setSubmitResult(data.submitResult || null);
+          }
+        }
+      };
+
+      socketInstance.onerror = (event) => {
+        console.warn("WebSocket error:", event);
+      };
+
+      socketInstance.onclose = () => {
+        if (socketInstance !== ws) return;
+
+        console.log('WebSocket closed');
+        cleanupPeerConnection();
+        setSocket(null);
+        scheduleSocketReconnect();
+      };
+    }
+
+    connectWebSocket();
 
     return () => {
-      ws.close();
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
+      shouldReconnectSocket = false;
+
+      if (socketReconnectTimer) {
+        clearTimeout(socketReconnectTimer);
       }
+
+      clearIceRestartTimer();
+      stopConnectivityChecks();
+
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+
+      cleanupPeerConnection();
+      setSocket(null);
     };
-  }, [roomId, userName, webcamInitialized]);
+  }, [roomId, userName, webcamInitialized, isRecruiter]);
 
   // 3. Drawing whiteboard functions
   const getCanvasPos = (e) => {
