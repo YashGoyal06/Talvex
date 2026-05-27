@@ -668,25 +668,6 @@ export default function LiveInterviewRoom() {
               </button>
             ))}
 
-            {/* Problem Selector (Recruiter and Candidate) */}
-            {problems.length > 0 && (
-              <div className="ml-4 flex items-center gap-1">
-                {problems.map((p, idx) => (
-                  <button
-                    key={p.id}
-                    onClick={() => { handleProblemChange(p); setActiveTab('problem'); }}
-                    className={`px-2.5 py-0.5 text-[8px] rounded-full font-mono font-bold transition-all cursor-pointer ${
-                      selectedProblem?.id === p.id 
-                        ? 'bg-orange-500/10 text-orange-600 border border-orange-500/20' 
-                        : 'text-neutral-500 hover:text-neutral-750'
-                    }`}
-                  >
-
-                    Q{idx + 1}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </header>
 
@@ -749,6 +730,22 @@ export default function LiveInterviewRoom() {
                             }`}>
                               {prob.difficulty}
                             </span>
+
+                            {/* Solve/Active Button */}
+                            <button
+                              onClick={() => {
+                                handleProblemChange(prob);
+                                setActiveTab('code');
+                              }}
+                              className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold transition-all cursor-pointer shadow-sm ${
+                                selectedProblem?.id === prob.id
+                                  ? 'bg-orange-500 text-white hover:bg-orange-600 font-extrabold'
+                                  : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                              }`}
+                            >
+                              {selectedProblem?.id === prob.id ? 'Active in Editor' : 'Solve in Editor'}
+                            </button>
+
                             {isRecruiter && (
                               <button
                                 onClick={() => {
@@ -758,7 +755,7 @@ export default function LiveInterviewRoom() {
                                   setEditDesc(prob.description || '');
                                   setIsEditingQuestion(true);
                                 }}
-                                className="ml-auto flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 text-neutral-500 rounded-full text-[9px] font-bold hover:bg-neutral-50 hover:text-neutral-800 transition-all cursor-pointer shadow-sm"
+                                className="ml-2 flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-200 text-neutral-500 rounded-full text-[9px] font-bold hover:bg-neutral-50 hover:text-neutral-800 transition-all cursor-pointer shadow-sm"
                               >
                                 <Edit3 size={10}/> Edit
                               </button>
@@ -788,9 +785,9 @@ export default function LiveInterviewRoom() {
 
                 {/* ── Recruiter Import Actions (always visible at bottom for recruiter) ── */}
                 {isRecruiter && !isEditingQuestion && (
-                  <div className="pt-6 border-t border-neutral-100 mt-6">
+                  <div className="pt-6 border-t border-neutral-100 mt-6 flex flex-col items-end w-full">
                     <div className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-3">Import Questions</div>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-3 justify-end">
                       {/* PDF Import */}
                       <label className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-bold transition-all cursor-pointer shadow-sm border ${
                         pdfUploading 
@@ -848,8 +845,29 @@ export default function LiveInterviewRoom() {
                   {/* Dynamic filename */}
                   <div className="flex items-center text-orange-600 text-[9px] font-extrabold tracking-wider font-mono">
                     <Code2 size={11} className="mr-1.5 text-orange-400"/>
-                    solution.{languageMeta[editorLanguage]?.ext || 'js'}
+                    {selectedProblem ? `Q${problems.findIndex(p => p.id === selectedProblem.id) + 1}: ${selectedProblem.title}` : 'solution'}.{languageMeta[editorLanguage]?.ext || 'js'}
                   </div>
+
+                  <div className="h-3.5 w-[1px] bg-neutral-200"></div>
+
+                  {/* Question Selector inside editor toolbar */}
+                  {problems.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      {problems.map((p, idx) => (
+                        <button
+                          key={p.id}
+                          onClick={() => handleProblemChange(p)}
+                          className={`px-2 py-0.5 text-[8px] rounded-full font-mono font-bold transition-all cursor-pointer ${
+                            selectedProblem?.id === p.id 
+                              ? 'bg-orange-500 text-white shadow-sm' 
+                              : 'bg-white border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-300'
+                          }`}
+                        >
+                          Q{idx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="h-3.5 w-[1px] bg-neutral-200"></div>
 
