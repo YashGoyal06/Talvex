@@ -218,17 +218,6 @@ export default function AssessmentRoom() {
     return 'text-red-600';
   };
 
-  const getRunnableSampleCase = (question) => {
-    const visibleCases = question.test_cases?.filter(c => !c.is_hidden && c.expected_output?.toString().trim()) || [];
-    if (visibleCases.length === 1) {
-      const onlyCase = visibleCases[0];
-      if (onlyCase.input?.toString().trim() === '1' && onlyCase.expected_output?.toString().trim() === '1') {
-        return {};
-      }
-    }
-    return visibleCases[0] || {};
-  };
-
   const handleRunCode = async () => {
     const activeQ = assessment.questions[activeQIndex];
     setRunning(true);
@@ -236,18 +225,13 @@ export default function AssessmentRoom() {
     setConsoleOutput({ status: 'Running...', stdout: '', stderr: '', time: 0 });
 
     try {
-      // Verify only when a real sample expected output exists.
-      const sampleCase = getRunnableSampleCase(activeQ);
-      const runStdin = customStdin || sampleCase.input || '';
-      const runExpected = customStdin ? '' : (sampleCase.expected_output || '');
-
       const res = await api.assessments.runCode(
         token,
         activeQ.id,
         codeContent,
         editorLanguage,
-        runStdin,
-        runExpected
+        customStdin,
+        ''
       );
 
       setConsoleOutput(res);
