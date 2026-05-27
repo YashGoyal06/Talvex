@@ -219,19 +219,15 @@ export default function AssessmentRoom() {
   };
 
   const handleRunCode = async () => {
-    const activeQ = assessment.questions[activeQIndex];
     setRunning(true);
     setConsoleTab('results');
     setConsoleOutput({ status: 'Running...', stdout: '', stderr: '', time: 0 });
 
     try {
-      const res = await api.assessments.runCode(
-        token,
-        activeQ.id,
+      const res = await api.assessments.executeCode(
         codeContent,
         editorLanguage,
-        customStdin,
-        ''
+        customStdin
       );
 
       setConsoleOutput(res);
@@ -578,6 +574,7 @@ export default function AssessmentRoom() {
 
               <div className="flex gap-2">
                 <button 
+                  type="button"
                   onClick={handleRunCode}
                   disabled={running || submitting}
                   className="bg-white hover:bg-neutral-50 text-neutral-700 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors border border-neutral-200 disabled:opacity-50 shadow-sm cursor-pointer"
@@ -587,6 +584,7 @@ export default function AssessmentRoom() {
                 </button>
 
                 <button 
+                  type="button"
                   onClick={handleSubmitSolution}
                   disabled={running || submitting}
                   className="bg-neutral-950 hover:bg-neutral-900 text-white px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-sm cursor-pointer"

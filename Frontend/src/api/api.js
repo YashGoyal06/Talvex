@@ -278,7 +278,7 @@ export const api = {
     },
 
     async getSession(token) {
-      return request(`/assessments/session/${token}/`);
+      return request(`/assessments/session/${token}/`, { skipAuth: true });
     },
 
     async runCode(token, questionId, code, language, stdin = '', expectedOutput = '') {
@@ -290,7 +290,20 @@ export const api = {
           language,
           stdin,
           expected_output: expectedOutput
-        }
+        },
+        skipAuth: true
+      });
+    },
+
+    async executeCode(code, language, stdin = '') {
+      return request('/assessments/execute/', {
+        method: 'POST',
+        body: {
+          code,
+          language,
+          stdin
+        },
+        skipAuth: true
       });
     },
 
@@ -301,13 +314,15 @@ export const api = {
           question_id: questionId,
           code,
           language
-        }
+        },
+        skipAuth: true
       });
     },
 
     async finish(token) {
       return request(`/assessments/session/${token}/finish/`, {
-        method: 'POST'
+        method: 'POST',
+        skipAuth: true
       });
     },
 
