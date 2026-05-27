@@ -9,6 +9,7 @@ import tempfile
 import requests as http_requests
 import jwt
 from django.conf import settings
+from django.utils import timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,8 @@ class SubmitApplicationSerializer(serializers.Serializer):
             job = Job.objects.get(id=value, status="Active")
         except Job.DoesNotExist:
             raise serializers.ValidationError("Job posting not found or is closed.")
+        if job.deadline and job.deadline < timezone.localdate():
+            raise serializers.ValidationError("Job posting deadline has passed.")
         return value
 
     def create(self, validated_data):

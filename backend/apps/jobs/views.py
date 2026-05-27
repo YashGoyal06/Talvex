@@ -1,7 +1,16 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from django.db.models import Q
+from django.utils import timezone
 from .models import Job
 from .serializers import JobSerializer
+
+
+def public_open_jobs():
+    today = timezone.localdate()
+    return Job.objects.filter(status="Active").filter(
+        Q(deadline__isnull=True) | Q(deadline__gte=today)
+    )
 
 class JobListCreateView(generics.ListCreateAPIView):
     serializer_class = JobSerializer
@@ -29,7 +38,7 @@ class JobListCreateView(generics.ListCreateAPIView):
         if company:
             return Job.objects.filter(company=company).order_by('-created_at')
         # Fallback for candidates/public to see active jobs
-        return Job.objects.filter(status="Active").order_by('-created_at')
+        return public_open_jobs().order_by('-created_at')
 
 class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = JobSerializer
@@ -44,4 +53,6 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
 class PublicJobDetailView(generics.RetrieveAPIView):
     serializer_class = JobSerializer
     permission_classes = [permissions.AllowAny]
-    queryset = Job.objects.filter(status="Active")
+
+    def get_queryset(self):
+        return public_open_jobs()

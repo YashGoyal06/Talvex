@@ -11,7 +11,7 @@ class JobSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'department', 'location', 'type', 'priority', 
             'status', 'description', 'requirements', 'application_form_schema', 
-            'pipeline_stages', 'created_at', 'days_open', 'applicants_count'
+            'pipeline_stages', 'created_at', 'deadline', 'days_open', 'applicants_count'
         ]
         read_only_fields = ['id', 'created_at']
 

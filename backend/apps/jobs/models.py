@@ -14,10 +14,15 @@ class Job(TenantModel):
     application_form_schema = models.JSONField(default=dict, blank=True) # fields schema
     pipeline_stages = models.JSONField(default=list, blank=True) # custom pipeline stages
     created_at = models.DateTimeField(default=timezone.now)
+    deadline = models.DateField(null=True, blank=True)
 
     @property
     def days_open(self):
         return (timezone.now() - self.created_at).days
+
+    @property
+    def is_expired(self):
+        return self.deadline is not None and self.deadline < timezone.localdate()
 
     def __str__(self):
         return f"{self.title} - {self.company.name}"
