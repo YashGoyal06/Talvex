@@ -2,7 +2,7 @@ from rest_framework import views, status, permissions, generics
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from .models import CandidateAssessment, CodingQuestion
-from .serializers import CandidateAssessmentSerializer, RunCodeSerializer, SubmitCodeSerializer, CodingQuestionSerializer
+from .serializers import CandidateAssessmentSerializer, RunCodeSerializer, SubmitCodeSerializer, CodingQuestionSerializer, ExecuteCodeSerializer
 from .runner import run_code
 from django.utils import timezone
 from datetime import timedelta
@@ -162,6 +162,24 @@ class RunCodeView(views.APIView):
             # Run code using runner
             run_result = run_code(code, language, stdin, expected_output)
             return Response(run_result, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExecuteCodeView(views.APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = ExecuteCodeSerializer(data=request.data)
+        if serializer.is_valid():
+            result = run_code(
+                serializer.validated_data['code'],
+                serializer.validated_data['language'],
+                serializer.validated_data.get('stdin', ''),
+                ''
+            )
+            return Response(result, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

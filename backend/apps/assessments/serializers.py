@@ -48,3 +48,9 @@ class SubmitCodeSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()
     code = serializers.CharField()
     language = serializers.CharField()
+
+
+class ExecuteCodeSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    language = serializers.CharField()
+    stdin = serializers.CharField(required=False, allow_blank=True)
