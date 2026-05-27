@@ -38,12 +38,21 @@ export default function CandidateJobs() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const formatDeadline = (deadline) => {
+    if (!deadline) return 'Open until filled';
+    return new Date(`${deadline}T00:00:00`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
       const [jobsData, appsData, profileRes] = await Promise.all([
-        api.jobs.list(),
+        api.jobs.list({ skipAuth: true }),
         api.candidates.myApplications(userEmail),
         api.candidates.getProfile(userEmail).catch(() => null)
       ]);
@@ -242,6 +251,11 @@ export default function CandidateJobs() {
                   {job.description || `We are looking for a ${job.title} to join our ${job.department} team.`}
                 </p>
 
+                <div className="text-[10px] text-neutral-400 font-bold mb-4 flex items-center gap-1.5">
+                  <Clock size={12} className="text-orange-500" />
+                  Deadline: {formatDeadline(job.deadline)}
+                </div>
+
                 <div className="pt-4 border-t border-neutral-100 flex justify-between items-center text-xs font-bold mt-auto">
                   <span className="text-neutral-400">{job.type}</span>
                   {isApplied ? (
@@ -304,7 +318,7 @@ export default function CandidateJobs() {
                   { icon: <Briefcase size={14} className="text-orange-500" />, label: 'Department', value: selectedJob.department },
                   { icon: <MapPin size={14} className="text-neutral-700" />, label: 'Location', value: selectedJob.location },
                   { icon: <Tag size={14} className="text-neutral-500" />, label: 'Type', value: selectedJob.type },
-                  { icon: <Clock size={14} className="text-neutral-400" />, label: 'Priority', value: selectedJob.priority || 'Normal' },
+                  { icon: <Clock size={14} className="text-neutral-400" />, label: 'Deadline', value: formatDeadline(selectedJob.deadline) },
                 ].map((m, i) => (
                   <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-400 mb-1">{m.icon} {m.label}</div>

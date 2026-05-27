@@ -174,8 +174,8 @@ export const api = {
 
   // Requisitions / Jobs API
   jobs: {
-    async list() {
-      return request('/jobs/');
+    async list(options = {}) {
+      return request('/jobs/', options);
     },
 
     async get(id) {

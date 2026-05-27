@@ -7,7 +7,8 @@ export default function JobsView() {
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [newJob, setNewJob] = useState({ title: '', department: '', location: '', type: 'Full-time', priority: 'Normal' });
+  const emptyJobForm = { title: '', department: '', location: '', type: 'Full-time', priority: 'Normal', deadline: '' };
+  const [newJob, setNewJob] = useState(emptyJobForm);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,6 +30,15 @@ export default function JobsView() {
     fetchJobs();
   }, []);
 
+  const formatDeadline = (deadline) => {
+    if (!deadline) return 'Open until filled';
+    return new Date(`${deadline}T00:00:00`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   const handleCreateJob = async () => {
     if (!newJob.title || !newJob.department) return;
     try {
@@ -38,10 +48,11 @@ export default function JobsView() {
         location: newJob.location || 'Remote',
         type: newJob.type,
         priority: newJob.priority,
+        deadline: newJob.deadline || null,
         description: `We are looking for a ${newJob.title} to join our ${newJob.department} team.`
       });
       setShowCreateModal(false);
-      setNewJob({ title: '', department: '', location: '', type: 'Full-time', priority: 'Normal' });
+      setNewJob(emptyJobForm);
       fetchJobs();
     } catch (err) {
       alert('Failed to create requisition: ' + err.message);
@@ -124,14 +135,19 @@ export default function JobsView() {
                 <div className="text-[10px] font-bold text-neutral-400 mb-1.5 flex items-center gap-1.5">
                   <Users size={12} className="text-orange-500" /> Applicants
                 </div>
-                <div className="text-lg font-black text-neutral-900 leading-none">{job.applicants}</div>
+                <div className="text-lg font-black text-neutral-900 leading-none">{job.applicants_count ?? 0}</div>
               </div>
               <div className="bg-white border border-neutral-100 p-3.5 rounded-2xl">
                 <div className="text-[10px] font-bold text-neutral-400 mb-1.5 flex items-center gap-1.5">
                   <Clock size={12} className="text-neutral-500" /> Days Open
                 </div>
-                <div className="text-lg font-black text-neutral-900 leading-none">{job.daysOpen}</div>
+                <div className="text-lg font-black text-neutral-900 leading-none">{job.days_open ?? 0}</div>
               </div>
+            </div>
+
+            <div className="text-[10px] text-neutral-400 font-bold mb-4 flex items-center gap-1.5">
+              <Clock size={12} className="text-orange-500" />
+              Deadline: {formatDeadline(job.deadline)}
             </div>
 
             <div className="mt-auto pt-4 border-t border-neutral-100 flex justify-between items-center text-xs font-bold">
@@ -194,7 +210,7 @@ export default function JobsView() {
                   { icon: <Briefcase size={14} className="text-orange-500" />, label: 'Department', value: selectedJob.department },
                   { icon: <MapPin size={14} className="text-neutral-700" />, label: 'Location', value: selectedJob.location },
                   { icon: <Tag size={14} className="text-neutral-500" />, label: 'Type', value: selectedJob.type },
-                  { icon: <Clock size={14} className="text-neutral-400" />, label: 'Days Open', value: `${selectedJob.daysOpen} days` },
+                  { icon: <Clock size={14} className="text-neutral-400" />, label: 'Deadline', value: formatDeadline(selectedJob.deadline) },
                 ].map((m, i) => (
                   <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-400 mb-1">{m.icon} {m.label}</div>
@@ -207,9 +223,7 @@ export default function JobsView() {
               <div className="space-y-2">
                 <h3 className="text-sm font-black text-neutral-950">Job Description</h3>
                 <p className="text-xs text-neutral-500 leading-relaxed font-medium">
-                  We are looking for a talented <strong className="text-neutral-800">{selectedJob.title}</strong> to join our {selectedJob.department} team.
-                  This is a {selectedJob.type} position based {selectedJob.location === 'Remote' ? 'remotely' : `in ${selectedJob.location}`}.
-                  You will work with a world-class team to build products used by millions.
+                  {selectedJob.description || `We are looking for a talented ${selectedJob.title} to join our ${selectedJob.department} team. This is a ${selectedJob.type} position based ${selectedJob.location === 'Remote' ? 'remotely' : `in ${selectedJob.location}`}.`}
                 </p>
               </div>
 
@@ -233,7 +247,7 @@ export default function JobsView() {
                   </div>
                   <div>
                     <h5 className="text-xs font-bold">Applicants in pipeline</h5>
-                    <p className="text-[10px] text-neutral-400 font-semibold mt-1">{selectedJob.applicants} candidates applied</p>
+                    <p className="text-[10px] text-neutral-400 font-semibold mt-1">{selectedJob.applicants_count ?? 0} candidates applied</p>
                   </div>
                 </div>
                 <button 
@@ -344,6 +358,17 @@ export default function JobsView() {
                     <option>Low</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Application Deadline</label>
+                <input 
+                  type="date" 
+                  value={newJob.deadline} 
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setNewJob({...newJob, deadline: e.target.value})} 
+                  className="w-full bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-2xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:bg-white text-xs font-semibold placeholder-neutral-400 shadow-sm" 
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100 mt-6">
