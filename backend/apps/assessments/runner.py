@@ -77,6 +77,8 @@ def execute_code_locally(code, language, stdin="", expected_output=""):
     def clean_str(s):
         return s.strip().replace('\r\n', '\n')
 
+    should_compare_output = bool(str(expected_output).strip())
+
     if lang == 'python':
         try:
             with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
@@ -95,10 +97,11 @@ def execute_code_locally(code, language, stdin="", expected_output=""):
             stdout = proc.stdout
             stderr = proc.stderr
             
-            success = clean_str(stdout) == clean_str(expected_output)
-            status_desc = "Accepted" if success else "Wrong Answer"
+            success = proc.returncode == 0 if not should_compare_output else clean_str(stdout) == clean_str(expected_output)
+            status_desc = "Executed" if not should_compare_output and proc.returncode == 0 else ("Accepted" if success else "Wrong Answer")
             if proc.returncode != 0:
                 status_desc = "Runtime Error"
+                success = False
 
             return {
                 "success": success,
@@ -146,10 +149,11 @@ def execute_code_locally(code, language, stdin="", expected_output=""):
             stdout = proc.stdout
             stderr = proc.stderr
 
-            success = clean_str(stdout) == clean_str(expected_output)
-            status_desc = "Accepted" if success else "Wrong Answer"
+            success = proc.returncode == 0 if not should_compare_output else clean_str(stdout) == clean_str(expected_output)
+            status_desc = "Executed" if not should_compare_output and proc.returncode == 0 else ("Accepted" if success else "Wrong Answer")
             if proc.returncode != 0:
                 status_desc = "Runtime Error"
+                success = False
 
             return {
                 "success": success,
@@ -231,9 +235,10 @@ def execute_code_via_piston(code, language, stdin="", expected_output=""):
             def clean_str(s):
                 return s.strip().replace('\r\n', '\n')
                 
-            success = clean_str(stdout) == clean_str(expected_output)
+            should_compare_output = bool(str(expected_output).strip())
+            success = not stderr if not should_compare_output else clean_str(stdout) == clean_str(expected_output)
             
-            status_desc = "Accepted"
+            status_desc = "Executed" if not should_compare_output else "Accepted"
             if stderr:
                 status_desc = "Runtime Error"
             elif not success:

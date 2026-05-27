@@ -9,6 +9,25 @@ from datetime import timedelta
 from candidates.models import Candidate
 from jobs.models import Job
 
+
+def get_gradable_test_cases(test_cases):
+    if not isinstance(test_cases, list):
+        return []
+
+    usable_cases = [
+        case for case in test_cases
+        if isinstance(case, dict) and str(case.get('expected_output', '')).strip()
+    ]
+
+    # PDF/Codeforces imports currently use this single placeholder when no real
+    # sample output was available. Treat it as manual review instead of grading.
+    if len(usable_cases) == 1:
+        only_case = usable_cases[0]
+        if str(only_case.get('input', '')).strip() == '1' and str(only_case.get('expected_output', '')).strip() == '1':
+            return []
+
+    return usable_cases
+
 class CodingQuestionsListView(generics.ListAPIView):
     """Return coding questions. Authenticated users get company + public questions."""
     serializer_class = CodingQuestionSerializer
@@ -178,11 +197,32 @@ class SubmitSolutionView(views.APIView):
                 "submitted_at": timezone.now().strftime("%Y-%m-%d %H:%M:%S")
             }
 
-            # Grade submission against all test cases
-            test_cases = question.test_cases
+            # Grade only when the question has real expected outputs.
+            test_cases = get_gradable_test_cases(question.test_cases)
             passed_cases = 0
             total_cases = len(test_cases)
             details = []
+
+            if total_cases == 0:
+                if not isinstance(assessment.results, dict):
+                    assessment.results = {}
+                assessment.results[str(q_id)] = {
+                    "passed_cases": 0,
+                    "total_cases": 0,
+                    "status": "Manual Review",
+                    "details": [],
+                    "requires_manual_review": True
+                }
+                assessment.save()
+
+                return Response({
+                    "message": "Question submitted for recruiter review.",
+                    "passed_cases": 0,
+                    "total_cases": 0,
+                    "status": "Manual Review",
+                    "details": [],
+                    "requires_manual_review": True
+                }, status=status.HTTP_200_OK)
 
             for case in test_cases:
                 inp = case.get('input', '')
@@ -210,7 +250,8 @@ class SubmitSolutionView(views.APIView):
                 "passed_cases": passed_cases,
                 "total_cases": total_cases,
                 "status": status_str,
-                "details": details
+                "details": details,
+                "requires_manual_review": False
             }
 
             assessment.save()
