@@ -69,130 +69,234 @@ def execute_code_via_judge0(code, language, stdin="", expected_output=""):
 
 def execute_code_locally(code, language, stdin="", expected_output=""):
     """
-    Fallback execution locally using subprocess. Supports Python and JS.
+    Local subprocess execution. Supports: Python, JavaScript, C++, Go, Java, TypeScript, Rust.
     """
     lang = language.lower()
-    
-    # Simple formatting of output comparison
+
     def clean_str(s):
         return s.strip().replace('\r\n', '\n')
 
     should_compare_output = bool(str(expected_output).strip())
 
+    def build_result(stdout, stderr, returncode, timeout_val=0.1):
+        success = returncode == 0 if not should_compare_output else clean_str(stdout) == clean_str(expected_output)
+        if returncode != 0:
+            return {
+                "success": False,
+                "status": "Runtime Error",
+                "stdout": stdout,
+                "stderr": stderr,
+                "time": timeout_val,
+                "memory": 1000
+            }
+        status_desc = "Executed" if not should_compare_output else ("Accepted" if success else "Wrong Answer")
+        return {
+            "success": success,
+            "status": status_desc,
+            "stdout": stdout,
+            "stderr": stderr,
+            "time": timeout_val,
+            "memory": 1000
+        }
+
+    # ─── Interpreted languages (no compile step) ───────────────────────
+
     if lang == 'python':
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as f:
-                f.write(code.encode('utf-8'))
-                temp_file = f.name
+        return _run_interpreted(code, '.py', ['python3'], stdin, build_result)
 
-            proc = subprocess.run(
-                ['python3', temp_file],
-                input=stdin,
-                text=True,
-                capture_output=True,
-                timeout=3
-            )
-            os.remove(temp_file)
-
-            stdout = proc.stdout
-            stderr = proc.stderr
-            
-            success = proc.returncode == 0 if not should_compare_output else clean_str(stdout) == clean_str(expected_output)
-            status_desc = "Executed" if not should_compare_output and proc.returncode == 0 else ("Accepted" if success else "Wrong Answer")
-            if proc.returncode != 0:
-                status_desc = "Runtime Error"
-                success = False
-
-            return {
-                "success": success,
-                "status": status_desc,
-                "stdout": stdout,
-                "stderr": stderr,
-                "time": 0.1,
-                "memory": 1000
-            }
-        except subprocess.TimeoutExpired:
-            os.remove(temp_file)
-            return {
-                "success": False,
-                "status": "Time Limit Exceeded",
-                "stdout": "",
-                "stderr": "Execution timed out.",
-                "time": 3.0,
-                "memory": 1000
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "status": "Runtime Error",
-                "stdout": "",
-                "stderr": str(e),
-                "time": 0.0,
-                "memory": 0
-            }
-            
     elif lang == 'javascript':
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".js", delete=False) as f:
-                f.write(code.encode('utf-8'))
-                temp_file = f.name
+        return _run_interpreted(code, '.js', ['node'], stdin, build_result,
+                                not_found_msg="Node.js not found. Install Node.js to run JavaScript locally.")
 
-            proc = subprocess.run(
-                ['node', temp_file],
-                input=stdin,
-                text=True,
-                capture_output=True,
-                timeout=3
-            )
-            os.remove(temp_file)
+    elif lang == 'typescript':
+        return _run_interpreted(code, '.ts', ['npx', 'ts-node'], stdin, build_result,
+                                not_found_msg="ts-node not found. Install TypeScript (npm i -g ts-node typescript) to run TypeScript locally.",
+                                timeout=10)
 
-            stdout = proc.stdout
-            stderr = proc.stderr
+    # ─── Compiled languages (compile + run) ────────────────────────────
 
-            success = proc.returncode == 0 if not should_compare_output else clean_str(stdout) == clean_str(expected_output)
-            status_desc = "Executed" if not should_compare_output and proc.returncode == 0 else ("Accepted" if success else "Wrong Answer")
-            if proc.returncode != 0:
-                status_desc = "Runtime Error"
-                success = False
+    elif lang == 'c++':
+        return _run_compiled(
+            code, src_ext='.cpp',
+            compile_cmd=lambda src, exe: ['g++', '-o', exe, src, '-std=c++17'],
+            stdin=stdin, build_result=build_result,
+            not_found_msg="g++ compiler not found. Install GCC to run C++ locally."
+        )
 
-            return {
-                "success": success,
-                "status": status_desc,
-                "stdout": stdout,
-                "stderr": stderr,
-                "time": 0.1,
-                "memory": 1000
-            }
-        except subprocess.TimeoutExpired:
-            os.remove(temp_file)
-            return {
-                "success": False,
-                "status": "Time Limit Exceeded",
-                "stdout": "",
-                "stderr": "Execution timed out.",
-                "time": 3.0,
-                "memory": 1000
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "status": "Runtime Error",
-                "stdout": "",
-                "stderr": str(e) or "Node.js execution environment not found.",
-                "time": 0.0,
-                "memory": 0
-            }
+    elif lang == 'java':
+        return _run_java(code, stdin, build_result)
 
-    # Fallback simulation if local interpreter is missing or not Python/JS
-    success = True
+    elif lang == 'go':
+        return _run_interpreted(code, '.go', ['go', 'run'], stdin, build_result,
+                                not_found_msg="Go not found. Install Go to run Go code locally.",
+                                timeout=10)
+
+    elif lang == 'rust':
+        return _run_compiled(
+            code, src_ext='.rs',
+            compile_cmd=lambda src, exe: ['rustc', '-o', exe, src],
+            stdin=stdin, build_result=build_result,
+            not_found_msg="rustc compiler not found. Install Rust to run Rust code locally."
+        )
+
+    # Unsupported language
     return {
-        "success": success,
-        "status": "Accepted",
-        "stdout": expected_output,
-        "stderr": "",
-        "time": 0.05,
-        "memory": 800
+        "success": False,
+        "status": "Runtime Error",
+        "stdout": "",
+        "stderr": f"Local execution not supported for language: {language}.",
+        "time": 0.0,
+        "memory": 0
     }
+
+
+def _run_interpreted(code, ext, cmd_prefix, stdin, build_result, not_found_msg=None, timeout=5):
+    """Run an interpreted language: write to temp file, execute directly."""
+    temp_file = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as f:
+            f.write(code.encode('utf-8'))
+            temp_file = f.name
+
+        proc = subprocess.run(
+            cmd_prefix + [temp_file],
+            input=stdin, text=True, capture_output=True, timeout=timeout
+        )
+        return build_result(proc.stdout, proc.stderr, proc.returncode)
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False, "status": "Time Limit Exceeded",
+            "stdout": "", "stderr": "Execution timed out.",
+            "time": float(timeout), "memory": 1000
+        }
+    except FileNotFoundError:
+        return {
+            "success": False, "status": "Runtime Error",
+            "stdout": "", "stderr": not_found_msg or f"Interpreter for {ext} not found.",
+            "time": 0.0, "memory": 0
+        }
+    except Exception as e:
+        return {
+            "success": False, "status": "Runtime Error",
+            "stdout": "", "stderr": str(e),
+            "time": 0.0, "memory": 0
+        }
+    finally:
+        if temp_file and os.path.exists(temp_file):
+            os.remove(temp_file)
+
+
+def _run_compiled(code, src_ext, compile_cmd, stdin, build_result, not_found_msg=None, compile_timeout=15, run_timeout=5):
+    """Compile source to binary, then execute the binary."""
+    src_file = None
+    exe_file = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=src_ext, delete=False) as f:
+            f.write(code.encode('utf-8'))
+            src_file = f.name
+        exe_file = src_file.replace(src_ext, '')
+
+        # Compile
+        compile_proc = subprocess.run(
+            compile_cmd(src_file, exe_file),
+            text=True, capture_output=True, timeout=compile_timeout
+        )
+        if compile_proc.returncode != 0:
+            return {
+                "success": False, "status": "Compilation Error",
+                "stdout": "", "stderr": compile_proc.stderr,
+                "time": 0.0, "memory": 0
+            }
+
+        # Run
+        run_proc = subprocess.run(
+            [exe_file],
+            input=stdin, text=True, capture_output=True, timeout=run_timeout
+        )
+        return build_result(run_proc.stdout, run_proc.stderr, run_proc.returncode)
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False, "status": "Time Limit Exceeded",
+            "stdout": "", "stderr": "Execution timed out.",
+            "time": float(run_timeout), "memory": 1000
+        }
+    except FileNotFoundError:
+        return {
+            "success": False, "status": "Runtime Error",
+            "stdout": "", "stderr": not_found_msg or f"Compiler for {src_ext} not found.",
+            "time": 0.0, "memory": 0
+        }
+    except Exception as e:
+        return {
+            "success": False, "status": "Runtime Error",
+            "stdout": "", "stderr": str(e),
+            "time": 0.0, "memory": 0
+        }
+    finally:
+        if src_file and os.path.exists(src_file):
+            os.remove(src_file)
+        if exe_file and os.path.exists(exe_file):
+            os.remove(exe_file)
+
+
+def _run_java(code, stdin, build_result, timeout=10):
+    """Java needs special handling: class name must match filename."""
+    import re
+    tmp_dir = None
+    try:
+        tmp_dir = tempfile.mkdtemp()
+
+        # Extract public class name, default to Main
+        match = re.search(r'public\s+class\s+(\w+)', code)
+        class_name = match.group(1) if match else 'Main'
+
+        src_file = os.path.join(tmp_dir, f'{class_name}.java')
+        with open(src_file, 'w') as f:
+            f.write(code)
+
+        # Compile
+        compile_proc = subprocess.run(
+            ['javac', src_file],
+            text=True, capture_output=True, timeout=15
+        )
+        if compile_proc.returncode != 0:
+            return {
+                "success": False, "status": "Compilation Error",
+                "stdout": "", "stderr": compile_proc.stderr,
+                "time": 0.0, "memory": 0
+            }
+
+        # Run
+        run_proc = subprocess.run(
+            ['java', '-cp', tmp_dir, class_name],
+            input=stdin, text=True, capture_output=True, timeout=timeout
+        )
+        return build_result(run_proc.stdout, run_proc.stderr, run_proc.returncode)
+
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False, "status": "Time Limit Exceeded",
+            "stdout": "", "stderr": "Execution timed out.",
+            "time": float(timeout), "memory": 1000
+        }
+    except FileNotFoundError:
+        return {
+            "success": False, "status": "Runtime Error",
+            "stdout": "", "stderr": "Java (javac/java) not found. Install JDK to run Java locally.",
+            "time": 0.0, "memory": 0
+        }
+    except Exception as e:
+        return {
+            "success": False, "status": "Runtime Error",
+            "stdout": "", "stderr": str(e),
+            "time": 0.0, "memory": 0
+        }
+    finally:
+        if tmp_dir and os.path.exists(tmp_dir):
+            import shutil
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 def execute_code_via_piston(code, language, stdin="", expected_output=""):
     """
